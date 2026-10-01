@@ -1,0 +1,717 @@
+#!/usr/bin/env bash
+
+set -u
+
+REPORT="application-audit.txt"
+ARCH="application-architecture.mmd"
+TMP_JSON="/tmp/application-compose-config.json"
+
+rm -f "$REPORT" "$ARCH" "$TMP_JSON"
+
+exec > >(tee "$REPORT") 2>&1
+
+echo "=============================================================="
+echo "             APPLICATION ARCHITECTURE AUDIT"
+echo "=============================================================="
+echo "Host       : $(hostname)"
+echo "Directory  : $(pwd)"
+echo "Date       : $(date)"
+echo
+
+# ==============================================================
+# FUNCTIONS
+# ==============================================================
+
+section() {
+    echo
+    echo "################################################################"
+    echo "# $1"
+    echo "################################################################"
+}
+
+mask_value() {
+    local key="$1"
+    local value="$2"
+
+    if echo "$key" | grep -qiE \
+        'PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE|API_KEY|ACCESS_KEY|CREDENTIAL|JWT_SECRET'; then
+        echo "********"
+    else
+        echo "$value"
+    fi
+}
+
+# ==============================================================
+# FIND COMPOSE FILE
+# ==============================================================
+
+section "1. DOCKER COMPOSE FILES"
+
+mapfile -t COMPOSE_FILES < <(
+    find . -type f \
+        \( -name "docker-compose.yml" \
+        -o -name "docker-compose.yaml" \
+        -o -name "compose.yml" \
+        -o -name "compose.yaml" \) \
+        -not -path "*/node_modules/*" \
+        -not -path "*/.git/*" \
+        2>/dev/null
+)
+
+if [ "${#COMPOSE_FILES[@]}" -eq 0 ]; then
+    echo "No Docker Compose file found."
+    exit 1
+fi
+
+printf '%s\n' "${COMPOSE_FILES[@]}"
+
+# ==============================================================
+# DOCKER COMPOSE NORMALIZED CONFIG
+# ==============================================================
+
+section "2. NORMALIZED DOCKER COMPOSE CONFIG"
+
+MAIN_COMPOSE="${COMPOSE_FILES[0]}"
+
+if docker compose -f "$MAIN_COMPOSE" config --format json > "$TMP_JSON" 2>/dev/null; then
+    echo "Normalized Compose configuration generated successfully."
+else
+    echo "WARNING: docker compose config --format json failed."
+    echo "Using static file inspection instead."
+fi
+
+# ==============================================================
+# SERVICE INVENTORY
+# ==============================================================
+
+section "3. SERVICE INVENTORY"
+
+if [ -s "$TMP_JSON" ] && command -v python3 >/dev/null 2>&1; then
+
+python3 - "$TMP_JSON" <<'PY'
+import json, sys
+
+f=sys.argv[1]
+
+try:
+    data=json.load(open(f))
+except Exception as e:
+    print("Unable to parse compose JSON:", e)
+    sys.exit(0)
+
+services=data.get("services", {})
+
+print(f"Total services: {len(services)}")
+print()
+
+for name, svc in services.items():
+
+    image=svc.get("image","-")
+    build=svc.get("build","-")
+    ports=svc.get("ports",[])
+    networks=svc.get("networks",[])
+    depends=svc.get("depends_on",{})
+
+    print("="*60)
+    print(f"SERVICE: {name}")
+    print(f"IMAGE: {image}")
+    print(f"BUILD: {build}")
+
+    print("PORTS:")
+    if ports:
+        for p in ports:
+            print(f"  {p}")
+    else:
+        print("  -")
+
+    print("NETWORKS:")
+    if networks:
+        for n in networks:
+            print(f"  {n}")
+    else:
+        print("  -")
+
+    print("DEPENDS_ON:")
+    if depends:
+        if isinstance(depends,dict):
+            for d in depends:
+                print(f"  {d}")
+        else:
+            for d in depends:
+                print(f"  {d}")
+    else:
+        print("  -")
+
+PY
+
+else
+
+    echo "Compose JSON unavailable."
+
+fi
+
+# ==============================================================
+# CONTAINER NAMES
+# ==============================================================
+
+section "4. CONTAINER NAMES"
+
+if [ -s "$TMP_JSON" ]; then
+
+python3 - "$TMP_JSON" <<'PY'
+import json,sys
+
+data=json.load(open(sys.argv[1]))
+
+for name,svc in data.get("services",{}).items():
+
+    print(f"{name}")
+
+    if svc.get("container_name"):
+        print(f"  container_name: {svc['container_name']}")
+
+PY
+
+fi
+
+# ==============================================================
+# PORT MAPPING
+# ==============================================================
+
+section "5. PORT MAPPING"
+
+if [ -s "$TMP_JSON" ]; then
+
+python3 - "$TMP_JSON" <<'PY'
+import json,sys
+
+data=json.load(open(sys.argv[1]))
+
+for name,svc in data.get("services",{}).items():
+
+    print()
+    print(f"[{name}]")
+
+    for p in svc.get("ports",[]):
+
+        if isinstance(p,dict):
+            target=p.get("target","?")
+            published=p.get("published","?")
+            protocol=p.get("protocol","tcp")
+
+            print(f"  {published} -> {target}/{protocol}")
+
+        else:
+            print(f"  {p}")
+
+PY
+
+fi
+
+# ==============================================================
+# NETWORK MAP
+# ==============================================================
+
+section "6. NETWORK MAP"
+
+if [ -s "$TMP_JSON" ]; then
+
+python3 - "$TMP_JSON" <<'PY'
+import json,sys
+
+data=json.load(open(sys.argv[1]))
+
+networks=data.get("networks",{})
+services=data.get("services",{})
+
+for net,conf in networks.items():
+
+    print()
+    print(f"NETWORK: {net}")
+
+    if isinstance(conf,dict):
+        print(f"  driver: {conf.get('driver','default')}")
+        print(f"  external: {conf.get('external',False)}")
+
+    print("  services:")
+
+    for svc,config in services.items():
+
+        ns=config.get("networks",{})
+
+        if isinstance(ns,list):
+            if net in ns:
+                print(f"    - {svc}")
+
+        elif net in ns:
+            print(f"    - {svc}")
+
+PY
+
+fi
+
+# ==============================================================
+# VOLUMES
+# ==============================================================
+
+section "7. STORAGE / VOLUMES"
+
+if [ -s "$TMP_JSON" ]; then
+
+python3 - "$TMP_JSON" <<'PY'
+import json,sys
+
+data=json.load(open(sys.argv[1]))
+
+for name,svc in data.get("services",{}).items():
+
+    vols=svc.get("volumes",[])
+
+    if not vols:
+        continue
+
+    print()
+    print(f"[{name}]")
+
+    for v in vols:
+        print(f"  {v}")
+
+PY
+
+fi
+
+# ==============================================================
+# ENVIRONMENT VARIABLES
+# ==============================================================
+
+section "8. ENVIRONMENT VARIABLES BY SERVICE"
+
+if [ -s "$TMP_JSON" ]; then
+
+python3 - "$TMP_JSON" <<'PY'
+import json,sys,re
+
+data=json.load(open(sys.argv[1]))
+
+secret_re=re.compile(
+    r'PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE|API_KEY|ACCESS_KEY|CREDENTIAL|JWT_SECRET',
+    re.I
+)
+
+for name,svc in data.get("services",{}).items():
+
+    env=svc.get("environment",{})
+
+    if not env:
+        continue
+
+    print()
+    print(f"[{name}]")
+
+    if isinstance(env,list):
+
+        for item in env:
+
+            key=item.split("=",1)[0]
+
+            if secret_re.search(key):
+                print(f"  {key}=********")
+            else:
+                print(f"  {item}")
+
+    elif isinstance(env,dict):
+
+        for key,value in env.items():
+
+            if value is None:
+                value=""
+
+            if secret_re.search(key):
+                value="********"
+
+            print(f"  {key}={value}")
+
+PY
+
+fi
+
+# ==============================================================
+# INFRASTRUCTURE DETECTION
+# ==============================================================
+
+section "9. INFRASTRUCTURE SERVICES"
+
+if [ -s "$TMP_JSON" ]; then
+
+python3 - "$TMP_JSON" <<'PY'
+import json,sys
+
+data=json.load(open(sys.argv[1]))
+
+keywords={
+    "KEYCLOAK": ["keycloak"],
+    "REDIS": ["redis"],
+    "RABBITMQ": ["rabbitmq","rabbit"],
+    "POSTGRESQL": ["postgres","postgresql"],
+    "MYSQL": ["mysql","mariadb"],
+    "NGINX": ["nginx"],
+}
+
+services=data.get("services",{})
+
+for category,words in keywords.items():
+
+    found=[]
+
+    for name,svc in services.items():
+
+        text=(name+" "+str(svc.get("image",""))).lower()
+
+        if any(w in text for w in words):
+            found.append(name)
+
+    if found:
+        print(f"{category}:")
+        for x in found:
+            print(f"  - {x}")
+
+PY
+
+fi
+
+# ==============================================================
+# KEYCLOAK
+# ==============================================================
+
+section "10. KEYCLOAK CONFIGURATION"
+
+grep -RniE \
+    'KEYCLOAK|OIDC|OPENID|OAUTH|REALM|CLIENT_ID|CLIENT_SECRET|ISSUER|AUTH_URL' \
+    . \
+    --exclude-dir=.git \
+    --exclude-dir=node_modules \
+    --exclude-dir=venv \
+    --exclude-dir=.venv \
+    --exclude='*.lock' \
+    --exclude='application-audit.txt' \
+    2>/dev/null |
+while IFS= read -r line; do
+
+    echo "$line" |
+    sed -E \
+        's/(PASSWORD|SECRET|TOKEN|CLIENT_SECRET|PRIVATE_KEY)=([^[:space:]]+)/\1=********/Ig'
+
+done | sort -u
+
+# ==============================================================
+# REDIS
+# ==============================================================
+
+section "11. REDIS CONFIGURATION"
+
+grep -RniE \
+    'REDIS|redis://|6379|CELERY.*REDIS|CACHE_URL|SESSION_REDIS' \
+    . \
+    --exclude-dir=.git \
+    --exclude-dir=node_modules \
+    --exclude-dir=venv \
+    --exclude-dir=.venv \
+    --exclude='*.lock' \
+    --exclude='application-audit.txt' \
+    2>/dev/null |
+sort -u
+
+# ==============================================================
+# RABBITMQ
+# ==============================================================
+
+section "12. RABBITMQ CONFIGURATION"
+
+grep -RniE \
+    'RABBITMQ|RABBIT|AMQP|5672|CELERY_BROKER|BROKER_URL' \
+    . \
+    --exclude-dir=.git \
+    --exclude-dir=node_modules \
+    --exclude-dir=venv \
+    --exclude-dir=.venv \
+    --exclude='*.lock' \
+    --exclude='application-audit.txt' \
+    2>/dev/null |
+sort -u
+
+# ==============================================================
+# DATABASES
+# ==============================================================
+
+section "13. DATABASE CONFIGURATION"
+
+grep -RniE \
+    'DB_HOST|DB_PORT|DB_NAME|DATABASE_URL|POSTGRES|MYSQL|MARIADB|5432|3306' \
+    . \
+    --exclude-dir=.git \
+    --exclude-dir=node_modules \
+    --exclude-dir=venv \
+    --exclude-dir=.venv \
+    --exclude='*.lock' \
+    --exclude='application-audit.txt' \
+    2>/dev/null |
+sort -u
+
+# ==============================================================
+# API / FRONTEND / BACKEND
+# ==============================================================
+
+section "14. API / APPLICATION ENDPOINTS"
+
+grep -RniE \
+    'API_URL|BASE_URL|BACKEND_URL|FRONTEND_URL|VITE_.*URL|NEXT_PUBLIC_.*URL|GATEWAY|ALLOWED_HOSTS|CORS|CSRF' \
+    . \
+    --exclude-dir=.git \
+    --exclude-dir=node_modules \
+    --exclude-dir=venv \
+    --exclude-dir=.venv \
+    --exclude='*.lock' \
+    --exclude='application-audit.txt' \
+    2>/dev/null |
+sort -u
+
+# ==============================================================
+# TECHNOLOGY DETECTION
+# ==============================================================
+
+section "15. APPLICATION TECHNOLOGY"
+
+find . -type f \
+    \( -name "package.json" \
+    -o -name "manage.py" \
+    -o -name "requirements.txt" \
+    -o -name "pyproject.toml" \
+    -o -name "go.mod" \
+    -o -name "pom.xml" \
+    -o -name "build.gradle" \
+    \) \
+    -not -path "*/node_modules/*" \
+    -not -path "*/.git/*" \
+    -print 2>/dev/null
+
+echo
+echo "Detected technologies:"
+
+find . -type f -name "package.json" \
+    -not -path "*/node_modules/*" \
+    -print -quit | grep -q . && echo "  - Node.js / React / Vite possible"
+
+find . -type f -name "manage.py" \
+    -not -path "*/node_modules/*" \
+    -print -quit | grep -q . && echo "  - Django"
+
+find . -type f -name "go.mod" \
+    -print -quit | grep -q . && echo "  - Go"
+
+find . -type f -name "pom.xml" \
+    -print -quit | grep -q . && echo "  - Java / Maven"
+
+find . -type f -name "build.gradle" \
+    -print -quit | grep -q . && echo "  - Java / Gradle"
+
+# ==============================================================
+# DEPENDENCY MAP
+# ==============================================================
+
+section "16. SERVICE DEPENDENCY MAP"
+
+if [ -s "$TMP_JSON" ]; then
+
+python3 - "$TMP_JSON" <<'PY'
+import json,sys
+
+data=json.load(open(sys.argv[1]))
+
+for name,svc in data.get("services",{}).items():
+
+    deps=svc.get("depends_on",{})
+
+    if isinstance(deps,dict):
+        deps=list(deps.keys())
+
+    if deps:
+        print(f"{name}")
+        for d in deps:
+            print(f"  └── {d}")
+
+PY
+
+fi
+
+# ==============================================================
+# APPLICATION ARCHITECTURE
+# ==============================================================
+
+section "17. APPLICATION ARCHITECTURE"
+
+if [ -s "$TMP_JSON" ]; then
+
+python3 - "$TMP_JSON" <<'PY'
+import json,sys
+
+data=json.load(open(sys.argv[1]))
+services=data.get("services",{})
+
+print()
+
+for name,svc in services.items():
+
+    deps=svc.get("depends_on",{})
+
+    if isinstance(deps,dict):
+        deps=list(deps.keys())
+
+    if deps:
+
+        for d in deps:
+            print(f"{name} ---> {d}")
+
+PY
+
+fi
+
+# ==============================================================
+# MERMAID DIAGRAM
+# ==============================================================
+
+cat > "$ARCH" <<'EOF'
+flowchart TD
+EOF
+
+if [ -s "$TMP_JSON" ]; then
+
+python3 - "$TMP_JSON" >> "$ARCH" <<'PY'
+import json,sys,re
+
+data=json.load(open(sys.argv[1]))
+services=data.get("services",{})
+
+def safe(x):
+    return re.sub(r'[^A-Za-z0-9_]', '_', x)
+
+for name in services:
+
+    image=services[name].get("image","")
+
+    n=safe(name)
+
+    if "keycloak" in (name+" "+image).lower():
+        label=f"{name}\\nKeycloak"
+    elif "redis" in (name+" "+image).lower():
+        label=f"{name}\\nRedis"
+    elif "rabbit" in (name+" "+image).lower():
+        label=f"{name}\\nRabbitMQ"
+    elif "postgres" in (name+" "+image).lower():
+        label=f"{name}\\nPostgreSQL"
+    elif "mysql" in (name+" "+image).lower():
+        label=f"{name}\\nMySQL"
+    elif "nginx" in (name+" "+image).lower():
+        label=f"{name}\\nNginx"
+    else:
+        label=name
+
+    print(f'    {n}["{label}"]')
+
+for name,svc in services.items():
+
+    deps=svc.get("depends_on",{})
+
+    if isinstance(deps,dict):
+        deps=list(deps.keys())
+
+    for d in deps:
+
+        print(f"    {safe(name)} --> {safe(d)}")
+
+PY
+
+fi
+
+echo
+echo "Architecture diagram written to:"
+echo "  $ARCH"
+
+# ==============================================================
+# ENV FILE INVENTORY
+# ==============================================================
+
+section "18. ENV FILE INVENTORY"
+
+find . -type f \
+    -name ".env*" \
+    -not -path "*/node_modules/*" \
+    -not -path "*/.git/*" \
+    -print 2>/dev/null
+
+# ==============================================================
+# CONFIG FILE INVENTORY
+# ==============================================================
+
+section "19. CONFIGURATION FILE INVENTORY"
+
+find . -type f \
+    \( -name "*.conf" \
+    -o -name "*.ini" \
+    -o -name "*.toml" \
+    -o -name "*.yaml" \
+    -o -name "*.yml" \
+    -o -name "settings.py" \
+    -o -name "config.py" \
+    \) \
+    -not -path "*/node_modules/*" \
+    -not -path "*/.git/*" \
+    -print 2>/dev/null
+
+# ==============================================================
+# SUMMARY
+# ==============================================================
+
+section "20. AUDIT SUMMARY"
+
+if [ -s "$TMP_JSON" ]; then
+
+python3 - "$TMP_JSON" <<'PY'
+import json,sys
+
+data=json.load(open(sys.argv[1]))
+
+services=data.get("services",{})
+networks=data.get("networks",{})
+volumes=data.get("volumes",{})
+
+print(f"Services : {len(services)}")
+print(f"Networks : {len(networks)}")
+print(f"Volumes  : {len(volumes)}")
+
+print()
+print("Services:")
+
+for x in services:
+    print(f"  - {x}")
+
+PY
+
+fi
+
+echo
+echo "=============================================================="
+echo "AUDIT COMPLETE"
+echo "=============================================================="
+
+echo
+echo "Report:"
+echo "  $REPORT"
+
+echo
+echo "Architecture:"
+echo "  $ARCH"
+
+echo
+echo "IMPORTANT:"
+echo "Secrets are masked where detected."
+echo "Review the report before sharing it."

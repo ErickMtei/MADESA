@@ -1,0 +1,1048 @@
+    1  exit
+    2  hostnamectl set-hostname tpf-gms-web.tpf.go.tz
+    3  echo '192.168.44.75 tpf-gms-web.tpf.go.tz tpf-gms-web' >> /etc/hosts
+    4  sudo su
+    5  exit
+    6  ll
+    7  tar -xzf 1.7.4.tar.gz
+    8  cd iRedMail-1.7.4/
+    9  CHECK_NEW_IREDMAIL=NO bash iRedMail.sh
+   10  cd iRedMail-1.7.4/
+   11  CHECK_NEW_IREDMAIL=NO bash iRedMail.sh
+   12  reboot
+   13  cd /var/log/
+   14  grep ip .
+   15  grep -wrn ip .
+   16  check-ip-state
+   17  nmtui
+   18  ip a
+   19  vi /etc/hosts 
+   20  ping 192.168.44.1
+   21  netstat -plnt
+   22  ps -ef 
+   23  dnf -y install httpd httpd-tools mod_ssl
+   24  dnf install http://rpms.remirepo.net/enterprise/remi-release-9.rpm -y
+   25  sudo dnf module reset php
+   26  sudo dnf module reset php
+   27  sudo dnf module enable php:remi-8.4 -y
+   28  sudo dnf install php php-ldap php-imagick php-common php-gd  php-json php-curl php-zip php-xml php-mbstring php-bz2 php-intl php-gmp php-mysqlnd php-opcache  gettext -y
+   29  php -v
+   30  systemctl enable --now php-fpm
+   31  systemctl restart --now php-fpm
+   32   sudo dnf -y install dnf-plugins-core
+   33   sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+   34   sudo dnf install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+   35   sudo systemctl --now enable docker
+   36  firewall-cmd --list-all
+   37  firewall-cmd --add-port=80/tcp --permanent
+   38  firewall-cmd --add-port=443/tcp --permanent
+   39  firewall-cmd --add-port=8088/tcp --permanent
+   40  firewall-cmd --reload
+   41  systemctl status httpd
+   42  telnet 192.168.44.100 389
+   43  telnet 192.168.44.100 22
+   44  telnet 192.168.44.100 389
+   45  firewall-cmd --list-all
+   46  telnet 192.168.44.100 389
+   47  ping 192.168.44.100
+   48  telnet 192.168.44.100 389
+   49  telnet 192.168.44.100 22
+   50  telnet 192.168.44.100 993
+   51  telnet 192.168.44.100 389
+   52  netstat -plnt |grep 389
+   53  telnet 192.168.44.100 389
+   54  telnet 192.168.44.200 389
+   55  telnet 192.168.44.200 7778
+   56  telnet 192.168.44.200 7779
+   57  vi /etc/dovecot/dovecot-ldap.conf 
+   58  telnet 192.168.44.200 7777
+   59  ll
+   60  cd /var/www/
+   61  ll
+   62  rm -rf *
+   63  ll
+   64  mkdir htdocs
+   65  cd htdocs/
+   66  ll
+   67  scp -P 11022 -rp abakari@196.192.79.231:/tmp/*.gz . 
+   68  ll
+   69  tar -xzvf docker.tar.gz 
+   70  ll
+   71  cd docker/
+   72  ll
+   73  mv docker-configs-gms-smz-vip docker-configs-gms-tpf
+   74  ll
+   75  cd data/
+   76  ll
+   77  cd gms-smz-vip/
+   78  ll
+   79  cd logs/
+   80  ll
+   81  cd ..
+   82  ll
+   83  cd ..
+   84  ll
+   85  cp -ra gms-smz-vip gms-tpf
+   86  ll
+   87  cd gms-tpf/
+   88  ll
+   89  cd logs/
+   90  ll
+   91  cd ...
+   92  cd ..
+   93  ll
+   94  cd temp/
+   95  ll
+   96  cd ..
+   97  ll
+   98  cd ..
+   99  ll
+  100  vi docker-compose.yml 
+  101  mysql -h192.168.44.200 -p
+  102  mysql -h192.168.44.200 -uroundcube -p
+  103  =p(TNZ)>001
+  104  mysql -h192.168.44.200 -uroundcube -p
+  105  ll
+  106  cd docker-configs-gms-tpf/
+  107  ll
+  108  vi config.inc.php
+  109  ll
+  110  grep -wrn '10.1.80.14' .
+  111  grep -rl '10.1.80.14' ./ | xargs sed -i 's/10.1.80.14/192.168.44.200/g'
+  112  grep -wrn '10.1.80.14' .
+  113  cd /etc/httpd/conf.d/
+  114  ll
+  115  vi tpf.go.tz.conf
+  116  mkdir -p /etc/ssl/certificates
+  117  cd /etc/ssl/certificates/
+  118  ll
+  119  vi /etc/httpd/conf/httpd.conf 
+  120  vi /etc/httpd/conf.d/tpf.go.tz.conf 
+  121  ll
+  122  touch gms_certificate.crt gms_private_key.key gms_bundle_certificate.crt
+  123  ll
+  124  cd /etc/httpd/conf.d/
+  125  ll
+  126  vi ssl.conf 
+  127  httpd -t
+  128  docker images
+  129  cd /root/
+  130  ll
+  131  pwd
+  132  ll
+  133  docker load -i mail-ui:5.7.1.tar
+  134  docker images
+  135  cd /var/www/htdocs/
+  136  ll
+  137  cd docker/
+  138  ll
+  139  cd data/
+  140  ll
+  141  rm -rf core/ ega/ gms-smz-vip/ ifm/ lga/ tanz/
+  142  ll
+  143  cd ..
+  144  ll
+  145  docker compose up -d
+  146  docker ps
+  147  docker exec -it mail-ui-gms-tpf /bin/bash
+  148  docker compose down
+  149  docker compose up -d
+  150  ll
+  151  cd docker-configs-gms-tpf/
+  152  ll
+  153  cd plugin-configs/
+  154  ll
+  155  grep -wrn '10.1.80.14' .
+  156  grep -wrn 'vmail' .
+  157  #grep -rl 'dc=egoz' ./ | xargs sed -i 's/dc=egoz/dc=tpf/g'
+  158  grep -wrn 'dc=egoz' .
+  159  grep -rl 'dc=egoz' ./ | xargs sed -i 's/dc=egoz/dc=tpf/g'
+  160  grep -wrn 'dc=egoz' .
+  161  vi +18 address-book.inc.php 
+  162  vi +106 password.inc.php 
+  163  cd /etc/httpd/conf.d/
+  164  ll
+  165  cd /etc/ssl/certificates/
+  166  ll
+  167  vi gms_certificate.crt 
+  168  ll
+  169  vi gms_private_key.key 
+  170  vi gms_certificate.crt 
+  171  vi gms_bundle_certificate.crt 
+  172  httpd -t
+  173  systemctl restart httpd 
+  174  journalctl -u httpd
+  175  journalctl -e httpd
+  176  journalctl -eu httpd
+  177  ll
+  178  >gms_private_key.key 
+  179  vi gms_private_key.key 
+  180  httpd -t
+  181  systemctl restart httpd 
+  182  cd /var/www/htdocs/docker/
+  183  ll
+  184  cd docker-configs-gms-tpf/
+  185  ll
+  186  grep -wrn 'MAILING' .
+  187  grep -wrn 'GOVERNMENT' .
+  188  vi config.inc.php
+  189  grep -wrn 'mailing' .
+  190  ll
+  191  cd plugin-configs/
+  192  ll
+  193  cd ..
+  194  ll
+  195  cd ..
+  196  ll
+  197  cd data/
+  198  ll
+  199  cd gms-tpf/
+  200  ll
+  201  cd ..
+  202  ll
+  203  cd docker-configs-gms-tpf/
+  204  ;;
+  205  ll
+  206  cd ..'
+  207  cd ..
+  208  ll
+  209  grep -wrn 'mailing' ./
+  210  grep -wrn 'Authority' ./
+  211  vi docker-configs-gms-tpf/config.inc.php
+  212  cd /etc/ssl/certificates/
+  213  ll
+  214  >gms_private_key.key 
+  215  vi gms_private_key.key 
+  216  ll
+  217  >gms_certificate.crt 
+  218  vi gms_certificate.crt 
+  219  ll
+  220  >gms_bundle_certificate.crt 
+  221  cat gms_bundle_certificate.crt 
+  222  vi gms_bundle_certificate.crt 
+  223  httpd -t
+  224  systemctl restart postfix
+  225  systemctl reload httpd
+  226  ll
+  227  cat gms_certificate.crt
+  228  ll
+  229  cat gms_private_key.key
+  230  cd /var/www/htdocs/docker/
+  231  ll
+  232  cd data/
+  233  ll
+  234  cd gms-tpf/
+  235  ll
+  236  cd logs/
+  237  ll
+  238  tail -f sendmail.log 
+  239  tail -f userlogins.log 
+  240  nmtui
+  241  cd /etc/httpd/conf.d/
+  242  ls -ltrh
+  243  ll
+  244  ls -ltrh
+  245  vi tpf.go.tz.conf 
+  246  httpd -d
+  247  httpd -t
+  248  vi tpf.go.tz.conf 
+  249  httpd -t
+  250  systemctl restart httpd
+  251  vi +2 /etc/httpd/conf.d/tpf.go.tz.conf
+  252  httpd -t
+  253  systemctl restart httpd
+  254  cd /var/www/htdocs/docker/data/
+  255  cd gms-tpf/
+  256  cd logs/
+  257  ls -ltrh
+  258  tail -f userlogins.log 
+  259  cd /var/www/htdocs/docker/
+  260  ll
+  261  cd docker-configs-gms-tpf/
+  262  ll
+  263  vi config.inc.php
+  264  exit
+  265  cd /var/www/htdocs/
+  266  ll
+  267  cd docker/
+  268  ll
+  269  cd data/
+  270  ll
+  271  mkdir images
+  272  docker ps
+  273  docker exec -it 5fa84f21a7ad /bin/bash
+  274  ll
+  275  cd images/
+  276  ll
+  277  pwd
+  278  ll
+  279  mv tanzania-police-logo\ \(1\).png tanzania-police-logo.png 
+  280  ls -l
+  281  cd ..
+  282  ll
+  283  cd docker-configs-gms-tpf/
+  284  vi config.inc.php
+  285  ll
+  286  cd ..
+  287  ll
+  288  vi docker-compose.yml 
+  289  docker compose down 
+  290  docker compose up -d
+  291  docker ps
+  292  ll
+  293  cd data/
+  294  ll
+  295  cd images/
+  296  ll
+  297  cd /etc/ssl/certificates/
+  298  ll
+  299  pwd
+  300  cat gms_certificate.crt 
+  301  > gms_certificate.crt 
+  302  httpd -t
+  303  systemctl restart httpd
+  304  vi gms_certificate.crt 
+  305  httpd -t
+  306  systemctl restart httpd
+  307  cd /var/www/htdocs/docker/data/images/
+  308  ll
+  309  pwd
+  310  ip a
+  311  cd /var/www/htdocs/docker/data/
+  312  ll
+  313  cd images/
+  314  ll
+  315  pwd
+  316  ll
+  317  mv tanzania-police-logo.png tanzania-police-logo.png_old
+  318  mv TPF\ LOGO\ -\ ACTUAL\ SIZE.png tanzania-police-logo.png
+  319  pwd
+  320  ll
+  321  systemctl status docker
+  322  systemctl status clamd
+  323  systemctl status clamad
+  324  systemctl status clamav
+  325  systemctl list-units --type=service --state=running
+  326  systemctl stop amavisd.service clamav-freshclam.service clamd@amavisd.service iredapd.service mlmmjadmin.service postfix.service slapd.service mariadb.service
+  327  systemctl disable amavisd.service clamav-freshclam.service clamd@amavisd.service iredapd.service mlmmjadmin.service postfix.service slapd.service mariadb.service
+  328  mysql -uroot -h192.168.44.220 -p
+  329  systemctl disable amavisd.service clamav-freshclam.service clamd@amavisd.service iredapd.service mlmmjadmin.service postfix.service slapd.service mariadb.service dovecot.service
+  330  systemctl stop amavisd.service clamav-freshclam.service clamd@amavisd.service iredapd.service mlmmjadmin.service postfix.service slapd.service mariadb.service dovecot.service
+  331  systemctl list-units --type=service --state=running
+  332  systemctl status php-fpm.service
+  333  systemctl stop php-fpm.service
+  334  systemctl list-units --type=service --state=running
+  335  systemctl start clamav-freshclam.service clamd@amavisd.service
+  336  systemctl list-units --type=service --state=running
+  337  cd /var/www/htdocs/
+  338  ll
+  339  cd docker/
+  340  ll
+  341  cd data/
+  342  ll
+  343  cd images/
+  344  ll
+  345  cd ..
+  346  ll
+  347  cd ..
+  348  ll
+  349  cd docker-configs-gms-tpf/
+  350  ll
+  351  vi config.inc.php
+  352  ll
+  353  cd ..
+  354  ll
+  355  cd data/
+  356  ll
+  357  cd images/
+  358  ll
+  359  pwd
+  360  cd ..
+  361  ll
+  362  cat docker-compose.yml 
+  363  cd ../
+  364  cd docker/
+  365  ll
+  366  cd d
+  367  cd data/
+  368  ll
+  369  cd images/
+  370  ll
+  371  cd ..
+  372  vi docker-compose.yml 
+  373  l
+  374  ll
+  375  cd docker-configs-gms-tpf/
+  376  ll
+  377  vi config.inc.php
+  378  [root@tpf-box-admin ~]# openssl x509 -in /etc/ssl/certificates/gms-admin_certificate.crt -noout -dates
+  379  sudo su
+  380  openssl x509 -in /etc/ssl/certificates/gms-admin_certificate.crt -noout -dates
+  381  cd /etc/ssl/certificates/
+  382  ls
+  383  openssl x509 -in /etc/ssl/certificates/gms-admin_certificate.crt -noout -dates
+  384  openssl x509 -in /etc/ssl/certificates/gms_certificate.crt -noout -dates
+  385  vi gms_certificate.crt 
+  386  vi gms_private_key.key 
+  387  httpd -t
+  388  vi gms_bundle_certificate.crt 
+  389  ll
+  390  httpd -t
+  391  systemctl restart httpd
+  392  openssl x509 -in /etc/ssl/certificates/gms_certificate.crt -noout -dates
+
+Perfect — this output now gives a **clear and complete picture of your architecture**. I’ll break it down so you fully understand what is happening.
+
+---
+
+# 🧠 1. What Your Docker Setup REALLY Is
+
+Your container is **NOT isolated**.
+
+It is tightly connected to the host using **bind mounts**.
+
+👉 This means:
+
+> The container is directly using folders from your server.
+
+---
+
+# 🔗 2. Full Mapping (HOST ↔ CONTAINER)
+
+Here is your real architecture:
+
+## ⚙️ PHP configuration
+
+```text
+HOST:
+/var/www/htdocs/docker/php.ini
+
+CONTAINER:
+/usr/local/etc/php/conf.d/uploads.ini
+```
+
+👉 Meaning:
+
+* You edit PHP settings on host
+* Container immediately uses them
+
+---
+
+## ⚙️ Main application config (VERY IMPORTANT)
+
+```text
+HOST:
+/var/www/htdocs/docker/docker-configs-gms-tpf
+
+CONTAINER:
+/var/www/html/config
+```
+
+👉 This is your **core application configuration**
+
+It contains:
+
+* config.inc.php
+* defaults.inc.php
+* mimetypes.php
+* plugin configs
+
+✔ This controls:
+
+* login behavior
+* mail settings
+* database connections
+* UI behavior
+* system features
+
+---
+
+## 📁 Logs
+
+```text
+HOST:
+/var/www/htdocs/docker/data/gms-tpf/logs
+
+CONTAINER:
+/var/www/html/logs
+```
+
+👉 Everything the app logs:
+
+* errors
+* login failures
+* mail activity
+* debugging info
+
+✔ This is critical for troubleshooting
+
+---
+
+## 📁 Temporary files
+
+```text
+HOST:
+/var/www/htdocs/docker/data/gms-tpf/temp
+
+CONTAINER:
+/var/www/html/temp
+```
+
+👉 Used for:
+
+* uploads
+* cache
+* session files
+* temporary processing
+
+---
+
+## 📁 Custom images / skins
+
+```text
+HOST:
+/var/www/enigma
+AND
+/var/www/htdocs/docker/data/images
+
+CONTAINER:
+/var/www/html/skins/karume/asset-custom
+```
+
+👉 This controls:
+
+* UI branding
+* logos
+* images
+* theme assets
+
+---
+
+# 🧩 3. What This Architecture Means
+
+This is a **hybrid “Docker + external filesystem” architecture**
+
+---
+
+## 🏗 NOT a pure container system
+
+Instead of:
+
+```
+Everything inside container ❌
+```
+
+You have:
+
+```
+Container + external host dependencies ✔
+```
+
+---
+
+# 🔄 4. How Everything Works Together
+
+## Step-by-step flow:
+
+### 1. User opens:
+
+```text
+http://tpf.go.tz
+```
+
+### 2. Apache receives request
+
+### 3. Apache forwards to Docker:
+
+```text
+localhost:8088
+```
+
+### 4. Docker app starts processing:
+
+* Reads config from:
+
+  ```
+  /var/www/html/config
+  ```
+
+BUT that path actually points to:
+
+```
+HOST:
+/var/www/htdocs/docker/docker-configs-gms-tpf
+```
+
+---
+
+### 5. App writes logs:
+
+```
+/var/www/html/logs
+```
+
+BUT actually goes to:
+
+```
+HOST:
+/var/www/htdocs/docker/data/gms-tpf/logs
+```
+
+---
+
+### 6. UI loads assets:
+
+```
+/var/www/html/skins/karume/asset-custom
+```
+
+BUT actually uses:
+
+```
+HOST:
+/var/www/htdocs/docker/data/images
+```
+
+---
+
+# 🧠 5. Key Insight (VERY IMPORTANT)
+
+## 👉 Your container is NOT self-contained
+
+It depends heavily on:
+
+### ✔ Host system files:
+
+* configs
+* logs
+* images
+* temp data
+* php.ini
+
+---
+
+# ⚠️ 6. Why This Design Is Used
+
+This setup is common in enterprise systems because:
+
+## ✔ Advantages
+
+### 1. Easy configuration updates
+
+No need to rebuild Docker image
+
+### 2. Persistent data
+
+Logs and uploads survive container restart
+
+### 3. Central management
+
+Admins manage everything from host
+
+### 4. Fast deployment
+
+Container stays generic
+
+---
+
+## ❌ Disadvantages
+
+### 1. Tight coupling
+
+Container depends on host structure
+
+### 2. Hard migration
+
+You cannot move container alone
+
+### 3. Risk of misconfiguration
+
+Editing host files affects production instantly
+
+### 4. Backup complexity
+
+You must back up BOTH:
+
+* container
+* host directories
+
+---
+
+# 🔥 7. The Most Important Mapping in Your System
+
+If you remember only one thing:
+
+```text
+/var/www/htdocs/docker/docker-configs-gms-tpf
+        ↓
+/var/www/html/config
+        ↓
+APPLICATION BRAIN (config control center)
+```
+
+👉 This is the MOST critical folder in your system.
+
+---
+
+# 🧪 8. How to Safely Work With This System
+
+## ✔ Always check before editing:
+
+```bash
+ls -l /var/www/htdocs/docker/docker-configs-gms-tpf
+```
+
+## ✔ After changes:
+
+Restart container:
+
+```bash
+docker restart mail-ui-gms-tpf
+```
+
+## ✔ Check logs immediately:
+
+```bash
+tail -f /var/www/htdocs/docker/data/gms-tpf/logs/*
+```
+
+---
+
+# 🧭 9. Mental Model (Simple)
+
+Think of it like this:
+
+```
+HOST SERVER
+ ├── Configuration Office (docker-configs)
+ ├── Storage Room (logs, images, temp)
+ ├── PHP settings room (php.ini)
+ └── Docker Engine
+        │
+        ▼
+   CONTAINER (mail UI app)
+        ├── runs application
+        ├── reads/writes to host
+        └── serves web app
+```
+
+---
+
+# 🚀 If you want next step
+
+I can help you with:
+
+### 🔧 1. How to safely modify config without breaking production
+
+### 🔧 2. How mail system works inside this app (SMTP/IMAP flow)
+
+### 🔧 3. How to migrate this into a clean Docker-only architecture
+
+### 🔧 4. How to debug 503 errors in this exact setup
+
+### 🔧 5. How to secure Apache + Docker reverse proxy
+
+Just tell me 👍
+
+================= CUSTOMIZING ROUNDCUBE ==================================================
+Yes — **customizing Roundcube is not only possible, it’s very common**, especially in organizations like government systems where branding, control, and features matter.
+
+Below is a structured guide showing **what you can customize and how to do it**.
+
+---
+
+# 1. What You Can Customize in Roundcube
+
+## A. User Interface (UI)
+
+* Logo and branding
+* Login page design
+* Colors, fonts, layout
+* Favicon
+
+📁 Location:
+
+```
+/skins/<your-skin>/
+```
+
+---
+
+## B. Functionality (Plugins)
+
+You can extend features using plugins:
+
+* Password change
+* Two-factor authentication (2FA)
+* Mail filtering
+* Calendar integration
+
+📁 Location:
+
+```
+/plugins/
+```
+
+---
+
+## C. Configuration Settings
+
+* Mail server connection
+* SMTP settings
+* Default language
+* Attachment limits
+
+📁 File:
+
+```
+config/config.inc.php
+```
+
+---
+
+## D. Behavior & Features
+
+* Disable/enable features (e.g., spellcheck, address book)
+* Customize login behavior
+* Session handling
+
+---
+
+# 2. Common Customizations (Step-by-Step)
+
+## 1. Change Logo & Branding
+
+### Steps:
+
+1. Go to:
+
+   ```
+   /skins/elastic/images/
+   ```
+2. Replace logo file (e.g. `logo.svg`)
+3. Clear cache
+
+💡 If using a different skin:
+
+```
+/skins/classic/images/
+```
+
+---
+
+## 2. Change Favicon
+
+1. Locate:
+
+   ```
+   /skins/elastic/images/favicon.ico
+   ```
+2. Replace with your own `.ico` file
+
+---
+
+## 3. Modify Login Page
+
+### File:
+
+```
+/skins/elastic/templates/login.html
+```
+
+You can:
+
+* Add text (e.g., government warning banner)
+* Add background images
+* Customize layout
+
+---
+
+## 4. Change Colors / Styling
+
+### File:
+
+```
+/skins/elastic/styles/styles.css
+```
+
+Modify:
+
+```css
+body {
+  background-color: #yourcolor;
+}
+```
+
+---
+
+## 5. Enable Plugins
+
+### Step 1: Edit config
+
+```
+config/config.inc.php
+```
+
+Example:
+
+```php
+$config['plugins'] = ['archive', 'zipdownload', 'password'];
+```
+
+### Step 2: Configure plugin
+
+```
+/plugins/<plugin-name>/config.inc.php
+```
+
+---
+
+## 6. Add Custom Plugin (Advanced)
+
+Create:
+
+```
+/plugins/myplugin/
+```
+
+Basic structure:
+
+```php
+class myplugin extends rcube_plugin {
+    function init() {
+        $this->add_hook('login_after', [$this, 'my_function']);
+    }
+}
+```
+
+---
+
+# 3. Best Practice (Very Important)
+
+Instead of editing core files directly:
+
+✔ Use:
+
+* Custom skin (copy `elastic` → new skin)
+* Plugins for logic changes
+
+❌ Avoid:
+
+* Editing core Roundcube files (updates will overwrite changes)
+
+---
+
+# 4. Cache Clearing (After Changes)
+
+Roundcube caches UI files.
+
+Run:
+
+```bash
+rm -rf temp/*
+```
+
+Or:
+
+```bash
+php bin/console cache:clear
+```
+
+---
+
+# 5. Permissions (Common Issue)
+
+Make sure web server user can read files:
+
+```bash
+chown -R apache:apache /var/www/roundcube
+chmod -R 755 /var/www/roundcube
+```
+
+---
+
+# 6. Real Government Use Cases
+
+Organizations often customize Roundcube to:
+
+* Add official logos (e.g., police, ministry branding)
+* Show login disclaimer banners
+* Restrict external emails
+* Integrate with LDAP/Active Directory
+* Add audit or logging plugins
+
+---
+
+# 7. Important Warning
+
+Some changes can break the system if done incorrectly:
+
+* PHP syntax errors in plugins → white screen
+* Wrong permissions → login failure
+* Cache not cleared → changes not visible
+
+---
+
+# If you want next step
+
+I can help you with:
+
+* Customizing your exact setup (you were working on favicon earlier)
+* Creating a **government-style login page**
+* Fixing branding not reflecting in your system
+* Building a plugin for your environment
+
+Just tell me what you want to change 👍
+
+======== What Your Mounts Actually Do ==========================
+From your docker inspect:
+HOST:      /var/www/htdocs/docker/data/images
+CONTAINER: /var/www/html/skins/karume/asset-custom
+The rest of:
+/var/www/html/skins/
+exists only inside the container filesystem, not on the host.
+
+Source": "/var/www/htdocs/docker/data/gms-tpf/temp",
+Destination": "/var/www/html/temp",
+
+Source": "/var/www/htdocs/docker/php.ini",
+Destination": "/usr/local/etc/php/conf.d/uploads.ini",
+
+===================== TROUBLESHOOTING ==========================
+
+
+============= RESTART SERVICE IF WEB CLIENT IS DOWN ============
+
+  httpd -t 
+  systemctl restart httpd
+
+================== CERTIFICATE =================================
+   PATH ..... /etc/ssl/certificates/
+   CHECK THE CONFIGURATION
+   RESTART SERVICE ....httpd 
+
+==================== IMAGES AND ICON ===========================
+There is a container that manage application UI
+
+FAVICON
+PATH -- /var/www/html/skins/karume/images/favicon.ico
+CONFIG FILE PATH(hardcoded) --/var/www/html/skins/karume/watermark.html
+
+LOGO
+PATH -- /var/www/html/skins/karume/asset-custom/tanzania-police-logo.webp
+CONFIG FILE PATH --/var/www/html/config/config.ini.php
+
+WATERMARK
+PATH -- /var/www/html/skins/karume/images/tanzania-police-logo.webp
+CONFIG FILE PATH --/var/www/html/skins/karume/watermark.html
+
+SLIDER
+PATH -- /var/www/html/skins/karume/images/slider/igp1.jpg
+CONFIG FILE PATH --/var/www/html/config/config.ini.php
+
+
+PASSWORD ENFORCEMENT
+inside the container
+CONFIG FILE PATH--/var/www/html/config/plugin-configs/password.inc.php
+MAIN PLUGIN FILE PASSWORD--/var/www/html/plugins/password/password.php
+

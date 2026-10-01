@@ -1,0 +1,377 @@
+#--------------EMAIL LIMITS
+To limit outgoing emails on an iRedMail server, the standard and cleanest way is using its built-in policy daemon: iRedAPD. Postfix relies on helper daemons like iRedAPD to handle time-windowed rate limits.
+
+Step 1: Enable the throttle Plugin in iRedAPD
+nano /opt/iredapd/settings.py
+Find the plugins = [...] section and add 'throttle' to the active plugins:
+plugins = ["greylisting", "throttle", "reject_sender_login_mismatch"]
+
+Step 2: Ensure Postfix Relays Mail to iRedAPD
+
+Check /etc/postfix/main.cf to ensure iRedAPD checks outgoing messages.
+Under smtpd_recipient_restrictions, confirm the policy service is present:
+
+smtpd_recipient_restrictions =
+    ...
+    check_policy_service inet:127.0.0.1:7777
+    ...
+
+Step 3: Insert the Throttling Rule in the Database
+iRedAPD reads rate limits directly from its SQL database (iredapd).
+
+mysql -u root -p
+USE iredapd;
+
+Option A: Global Limit for ALL Users (Server-wide)
+Limits every user on the server to 10 emails per 3600 seconds (1 hour):
+
+INSERT INTO throttle (account, kind, priority, period, max_msgs) 
+VALUES ('@.', 'outbound', 0, 3600, 10);
+
+(Note: @. acts as a global wildcard catch-all).
+
+Option B: Per-Domain Limit
+Limits every user under @yourdomain.com to 10 emails per hour:
+
+INSERT INTO throttle (account, kind, priority, period, max_msgs) 
+VALUES ('@yourdomain.com', 'outbound', 60, 3600, 10);
+
+Option C: Per-User Limit
+INSERT INTO throttle (account, kind, priority, period, max_msgs) 
+VALUES ('user@yourdomain.com', 'outbound', 100, 3600, 10);
+
+Step 4: Restart Services
+
+Apply changes by restarting both the iRedAPD service and Postfix:
+
+systemctl restart iredapd
+systemctl restart postfix
+
+Step 5: How to Test and Verify
+tail -f /var/log/maillog
+# Or on systemd systems:
+journalctl -u postfix -f
+
+Verification: You should see a rejection message stating
+
+#--View active limits:
+SELECT account, kind, period, max_msgs FROM iredapd.throttle;
+
+#--Remove/Delete a limit:
+
+DELETE FROM iredapd.throttle WHERE account='@.';
+
+#---TO ALLOW SPECIFC USERS TO SEND MANY EMAILS THE REST NO:
+iRedAPD uses a priority system when evaluating throttle rules. Rules with a higher priority integer override general rules with a lower priority.
+
+To apply a limit to everyone except a few specific accounts, set a global rule (priority 0) and per-user override rules (priority 100 or setting max_msgs = 0 for unlimited).
+
+Step 1: Log in to the iRedAPD Database
+mysql -u root -p
+USE iredapd;
+
+Step 2: Apply Rules
+1. Set the Global Limit (Everyone)
+Set the baseline rate limit for all accounts on the server to 10 emails per hour (Priority 0):
+INSERT INTO throttle (account, kind, priority, period, max_msgs) VALUES ('@.', 'outbound', 0, 3600, 33);
+
+2. Set Exemption/Override Rules (Except Few)
+Choose one of the following approaches for your VIP/exempt users:
+
+Option A: Give specific users a higher limit (e.g., 500 emails/hour)
+Set priority = 100 so iRedAPD applies this rule instead of the global rule for this user:
+
+INSERT INTO throttle (account, kind, priority, period, max_msgs) VALUES ('vipuser@yourdomain.com', 'outbound', 100, 3600, 500);
+
+Option B: Make specific users UNLIMITED
+Setting max_msgs = 0 with higher priority disables rate limiting for that user entirely:
+
+INSERT INTO throttle (account, kind, priority, period, max_msgs) VALUES ('boss@yourdomain.com', 'outbound', 100, 3600, 0);
+
+Step 3: Restart iRedAPD
+systemctl restart iredapd
+
+Step 4: Verify Your Rules
+
+Check all active throttle rules ranked by priority:
+SELECT account, kind, priority, period, max_msgs FROM iredapd.throttle ORDER BY priority DESC;
+
+MariaDB [iredapd]> SELECT account, kind, priority, period, max_msgs FROM iredapd.throttle ORDER BY priority DESC;
++----------------------+----------+----------+--------+----------+
+| account              | kind     | priority | period | max_msgs |
++----------------------+----------+----------+--------+----------+
+| erick.mtei@tpf.go.tz | outbound |      100 |   3600 |        3 |
+| @tpf.go.tz           | outbound |        0 |   3600 |       33 |
++----------------------+----------+----------+--------+----------+
+2 rows in set (0.000 sec)
+
+MariaDB [iredapd]> 
+
+
+
+MariaDB [iredapd]> update throttle set max_msgs='10' where max_msgs='5';
+Query OK, 1 row affected (0.001 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
+
+MariaDB [iredapd]>
+
+
+
+Verification: When vipuser@yourdomain.com sends mail, iRedAPD will match the row with priority 100 first and bypass the catch-all (@.) rule with priority 0.
+
+
+#---Top Senders:
+
+cat /var/log/maillog |tr ' ' '\n'| grep @ | grep -v -w 'an\|a\|is'| sort| uniq -c| sort -nk1 -r| head -n 30 | grep from
+
+
+[root@tpf-mbox-pr postfix]# cat /var/log/maillog |tr ' ' '\n'| grep @ | grep -v -w 'an\|a\|is'| sort| uniq -c| sort -nk1 -r| head -n 30 | grep from
+  12069 from=<root@tpf-mbox-pr.tpf.go.tz>,
+   2578 from=<leads@vodacom.co.tz>,
+    393 from=<traffic.hq@tpf.go.tz>,
+    290 from=<noreply2@utumishi.go.tz>,
+    158 from=<cid.hq@tpf.go.tz>,
+[root@tpf-mbox-pr postfix]#
+
+
+postqueue -p | tail -n +2 | awk 'BEGIN { RS = "" } /david\.matiko@trc\.co\.tz/ { print $1 }' | tr -d '*!' | postsuper -d -
+postqueue -p | tail -n +2 | awk 'BEGIN { RS = "" } /apisfinance@immigration\.go\.tz/ { print $1 }' | tr -d '*!' | postsuper -d -
+
+
+postqueue -p | tail -n +2 | awk 'BEGIN { RS = "" } /bob@tpf.go.tz\.go\.tz/ { print $1 }' | tr -d '*!' | postsuper -d -
+
+
+
+
+
+
+
+
+
+INSERT INTO throttle (account, kind, priority, period, max_msgs) VALUES ('user@yourdomain.com', 'outbound', 100, 3600, 10);
+
+INSERT INTO throttle (account, kind, priority, period, max_msgs) VALUES ('erick.mtei@tpf.go.tz', 'outbound', 100, 3600, 10);
+
+
+MariaDB [iredapd]> show tables;
++----------------------------------+
+| Tables_in_iredapd                |
++----------------------------------+
+| greylisting                      |
+| greylisting_tracking             |
+| greylisting_whitelist_domain_spf |
+| greylisting_whitelist_domains    |
+| greylisting_whitelists           |
+| senderscore_cache                |
+| smtp_sessions                    |
+| srs_exclude_domains              |
+| throttle                         |
+| throttle_tracking                |
+| wblist_rdns                      |
++----------------------------------+
+11 rows in set (0.000 sec)
+
+MariaDB [iredapd]> INSERT INTO throttle (account, kind, priority, period, max_msgs) VALUES ('erick.mtei@tpf.go.tz', 'outbound', 100, 3600, 10);
+Query OK, 1 row affected (0.001 sec)
+
+MariaDB [iredapd]> flush privileges
+    -> ;
+Query OK, 0 rows affected (0.086 sec)
+
+MariaDB [iredapd]> select * from throttle limit 3;
++----+----------------------+----------+----------+--------+----------+----------+-----------+-----------+
+| id | account              | kind     | priority | period | msg_size | max_msgs | max_quota | max_rcpts |
++----+----------------------+----------+----------+--------+----------+----------+-----------+-----------+
+|  1 | erick.mtei@tpf.go.tz | outbound |      100 |   3600 |       -1 |       10 |        -1 |        -1 |
++----+----------------------+----------+----------+--------+----------+----------+-----------+-----------+
+1 row in set (0.000 sec)
+
+MariaDB [iredapd]> 
+
+
+MariaDB [iredapd]> INSERT INTO throttle (account, kind, priority, period, max_msgs) VALUES ('erick.mtei@tpf.go.tz', 'outbound', 100, 3600, 10);
+Query OK, 1 row affected (0.001 sec)
+
+MariaDB [iredapd]> flush privileges
+    -> ;
+Query OK, 0 rows affected (0.086 sec)
+
+MariaDB [iredapd]> select * from throttle limit 3;
++----+----------------------+----------+----------+--------+----------+----------+-----------+-----------+
+| id | account              | kind     | priority | period | msg_size | max_msgs | max_quota | max_rcpts |
++----+----------------------+----------+----------+--------+----------+----------+-----------+-----------+
+|  1 | erick.mtei@tpf.go.tz | outbound |      100 |   3600 |       -1 |       10 |        -1 |        -1 |
++----+----------------------+----------+----------+--------+----------+----------+-----------+-----------+
+1 row in set (0.000 sec)
+
+MariaDB [iredapd]> delete from throttle where account='erick.mtei@tpf.go.tz' ;
+Query OK, 1 row affected (0.001 sec)
+
+MariaDB [iredapd]> flush privileges
+    -> ;
+Query OK, 0 rows affected (0.041 sec)
+
+MariaDB [iredapd]> select * from throttle limit 3;
+Empty set (0.000 sec)
+
+MariaDB [iredapd]> INSERT INTO throttle (account, kind, priority, period, max_msgs) VALUES ('erick.mtei@tpf.go.tz', 'outbound', 100, 3600, 3);
+Query OK, 1 row affected (0.001 sec)
+
+MariaDB [iredapd]> flush privileges;
+Query OK, 0 rows affected (0.017 sec)
+
+MariaDB [iredapd]>
+
+
+
+#---CUSTOMIZE THE BELOW MESSAGE:
+[root@tpf-mbox-pr postfix]# cat /var/log/maillog |grep exceed
+
+tz> proto=ESMTP helo=<mail.tpf.go.tz>
+Sep 16 13:08:05 tpf-mbox-pr postfix/submission/smtpd[2131767]: 4hlF2F5DDbzLg: reject: END-OF-MESSAGE from unknown[192.168.44.99]: 554 5.7.1 <END-OF-MESSAGE>: End-of-data rejected: Throttling quota exceeded; from=<radio.geita@tpf.go.tz> proto=ESMTP helo=<mail.tpf.go.tz>
+
+[root@tpf-mbox-pr postfix]# grep -Rni "Throttling quota exceeded" /opt/iredapd /etc/iredapd 2>/dev/null
+/opt/iredapd/libs/__init__.py:22:    'reject_quota_exceeded': 'REJECT Throttling quota exceeded',
+[root@tpf-mbox-pr postfix]# 
+
+cp -a /opt/iredapd/libs/__init__.py /opt/iredapd/libs/__init__.py.bak.$(date +%F-%H%M%S)
+
+[root@tpf-mbox-pr postfix]#vi +22 /opt/iredapd/libs/__init__.py
+
+SMTP_ACTIONS = {
+    'default': 'DUNNO',
+    # Use 'OK' carefully, it will bypass other Postfix/iRedAPD restrictions.
+    'whitelist': 'OK',
+    # discard email without return error message to sender
+    'discard': 'DISCARD Policy discard',
+    # reject
+    'reject': 'REJECT Policy rejection',
+    # reject with reason
+    'reject_null_sender': 'REJECT Policy rejection due to null sender',
+    'reject_forged_sender': 'REJECT SMTP AUTH is required for users under this sender domain',
+    'reject_sender_login_mismatch': 'REJECT Sender is not same as SMTP authenticate username',
+    'reject_blacklisted': 'REJECT Blacklisted',
+    'reject_not_authorized': 'REJECT Not authorized',
+    'reject_message_size_exceeded': 'REJECT Message size exceed (maybe caused by big attachment file)',
+    'reject_blacklisted_rdns': 'REJECT Blacklisted reverse DNS name of server IP address',
+    # Throttling
+    'reject_quota_exceeded': 'REJECT Throttling quota exceeded',
+    'reject_msg_size_exceeded': 'REJECT Message size is too large',
+    'reject_max_rcpts_exceeded': 'REJECT Too many recipients in single message',
+    # Sender Score
+    'reject_low_sender_score': 'REJECT Server IP address has bad reputation. FYI: https://www.senderscore.org/lookup.php?lookup=',
+    'greylisting': '451 4.7.1',
+}
+
+
+Sending limit exceeded. Please try again later or Contact GMS Administrator.
+
+===============================================================================================================================================================================
+
+#---TO LIMIT THE MAXIMUM NUMBER OF RECIPIENTS PER SINGLE EMAIL 
+To limit the maximum number of recipients per single email message (to prevent spam bursts), you can configure Postfix's built-in smtpd_recipient_limit setting or enforce it via iRedAPD's recipient_limit plugin for per-account granular rules.
+
+Option 1: Global Postfix Limit (Quickest & Easiest)
+If you want a server-wide rule restricting any user from adding more than a specific number of recipients (e.g., 10 recipients per email):
+1. Open Postfix configuration:
+nano /etc/postfix/main.cf
+
+2. Add or update the smtpd_recipient_limit directive:
+smtpd_recipient_limit = 10
+
+3. Reload Postfix to apply:
+postfix reload
+
+How it works: If a user attempts to send a message to 11 recipients at once, Postfix immediately drops/rejects the message with a standard 5xx SMTP response (Too many recipients).
+
+Option 2: iRedAPD Plugin (Granular / Per-User Limits)
+
+If you need finer control—such as exempting certain accounts from the recipient limit while restricting everyone else—use iRedAPD's built-in recipient_limit plugin.
+
+
+Step 1: Add Rules to Database
+mysql -u root -p
+
+Switch to iredapd and add rules to the throttle table:
+
+MariaDB [iredapd]> desc throttle;
++-----------+---------------------+------+-----+----------+----------------+
+| Field     | Type                | Null | Key | Default  | Extra          |
++-----------+---------------------+------+-----+----------+----------------+
+| id        | bigint(20) unsigned | NO   | PRI | NULL     | auto_increment |
+| account   | varchar(255)        | NO   | MUL | NULL     |                |
+| kind      | varchar(10)         | NO   |     | outbound |                |
+| priority  | tinyint(1) unsigned | NO   |     | 0        |                |
+| period    | int(10) unsigned    | NO   |     | 0        |                |
+| msg_size  | bigint(20)          | NO   |     | -1       |                |
+| max_msgs  | bigint(20)          | NO   |     | -1       |                |
+| max_quota | bigint(20)          | NO   |     | -1       |                |
+| max_rcpts | bigint(20)          | NO   |     | -1       |                |
++-----------+---------------------+------+-----+----------+----------------+
+9 rows in set (0.098 sec)
+
+MariaDB [iredapd]> 
+
+
+USE iredapd;
+
+Insert a rule targeting maximum recipients per email (max_rcpts).
+--Global Rule: Restrict everyone to a maximum of 10 recipients per email:
+
+INSERT INTO throttle (account, kind, priority, period, max_rcpts) 
+VALUES ('@.', 'outbound', 0, 0, 10);
+
+---Exemption Rule: Allow a VIP user to send to up to 100 recipients per email:
+
+INSERT INTO throttle (account, kind, priority, period, max_rcpts) 
+VALUES ('vipuser@yourdomain.com', 'outbound', 100, 0, 100);
+
+(Setting period = 0 tells iRedAPD to evaluate this rule on a per-email basis rather than over a time-windowed period).
+
+Step 3: Restart Services
+systemctl restart iredapd
+
+
+INSERT INTO throttle (account, kind, priority, period, max_rcpts) 
+VALUES ('@.', 'outbound', 0, 0, 5);
+
+INSERT INTO throttle (account, kind, priority, period, max_rcpts) 
+VALUES ('audit.query@tpf.go.tz.', 'outbound', 0, 0, 20);
+
+
+INSERT INTO throttle
+(account, kind, priority, period, max_msgs, max_rcpts)
+VALUES
+('erick.mtei@tpf.go.tz', 'outbound', 10, 3600, -1, 50),
+('dawson.msongaleli@tpf.go.tz', 'outbound', 10, 3600, -1, 50),
+('rpc.mtwara@tpf.go.tz', 'outbound', 10, 3600, -1, 20),
+('rpc.arusha@tpf.go.tz', 'outbound', 10, 3600, -1, 20),
+('rpc.geita@tpf.go.tz', 'outbound', 10, 3600, -1, 20),
+('cp.znz@tpf.go.tz', 'outbound', 10, 3600, -1, 20),
+('rpc.kigoma@tpf.go.tz', 'outbound', 10, 3600, -1, 20);
+
+
+
+MariaDB [iredapd]> SELECT account, kind, priority, period, max_msgs, max_rcpts FROM iredapd.throttle ORDER BY priority DESC;
++------------+----------+----------+--------+----------+-----------+
+| account    | kind     | priority | period | max_msgs | max_rcpts |
++------------+----------+----------+--------+----------+-----------+
+| @tpf.go.tz | outbound |        0 |   3600 |       30 |         5 |
++------------+----------+----------+--------+----------+-----------+
+1 row in set (0.000 sec)
+
+MariaDB [iredapd]> update throttle set max_rcpts = 10 where max_rcpts = 5;
+Query OK, 1 row affected (0.001 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
+
+MariaDB [iredapd]> SELECT account, kind, priority, period, max_msgs, max_rcpts FROM iredapd.throttle ORDER BY priority DESC;
++------------+----------+----------+--------+----------+-----------+
+| account    | kind     | priority | period | max_msgs | max_rcpts |
++------------+----------+----------+--------+----------+-----------+
+| @tpf.go.tz | outbound |        0 |   3600 |       30 |        10 |
++------------+----------+----------+--------+----------+-----------+
+1 row in set (0.000 sec)
+
+MariaDB [iredapd]>
+
+=================================================================================================================================

@@ -1,0 +1,281 @@
+GOTHOMIS INSTALLATION,CONFIGURATION & SETUP FOR A NEW UBUNTU SERVER
+
+✅INSTALL UBUNTU SERVER LATEST VERSION i.e 24.04LTS With Atleast the Following Specs
+  RAM>24GB
+  CPU Cores > 16Cores
+  Storage > 200GB with LVM to allow further Expansion once Needed
+  Server must have Internet connectivity to public allowed to allow easy of Downloading and Installation and Updating& Upgrading New OS packages
+
+
+
+
+
+✅Install JAVA & Maven
+  sudo apt update
+  sudo apt install openjdk-11-jdk
+  java -version
+  sudo apt install maven
+  mvn -version
+
+
+
+
+✅Install Docker & Docker Compose Latest Version
+  sudo apt update
+  sudo apt install -y ca-certificates curl gnupg lsb-release
+  sudo mkdir -p /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+    sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+  echo \
+    "deb [arch=$(dpkg --print-architecture) \
+    signed-by=/etc/apt/keyrings/docker.gpg] \
+    https://download.docker.com/linux/ubuntu \
+    $(lsb_release -cs) stable" | \
+    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+  sudo apt update
+  sudo apt install --only-upgrade docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin   📌USE THIS IF YOU WANT TO UPGRADE ONLY
+  sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  docker version
+  docker compose version
+  sudo usermod -aG docker $USER
+  sudo systemctl start docker
+  sudo systemctl enable docker
+  sudo systemctl status docker.service
+
+
+
+✅SET TIME IN EAT FORMAT
+   sudo timedatectl set-timezone Africa/Dar_es_Salaam
+   sudo timedatectl set-ntp on
+   timedatectl
+
+✅SETUP WORKING DIRECTORY
+  mkdir /home/ramis/phmis
+  cd phmis
+  COPY the main files and folder using fileZilla or Using scp/rsycn from one server to another and transfer them to this path
+
+✅GENARATE SSH PUBLIC KEY AND THEN PASTE IT TO A GITLAB TO ENABBLE PASSWORDLESS PULLING OF EACH PROJRCT CHANGES
+  ssh-keygen -t rsa -b 4096
+  cat /home/ramis/.ssh/id_rsa.pub
+
+✅SETUP A WORKING DIRECTORY FOR A SYSTEM
+  cd /home/ramis/phmis
+  export GOTHOMIS_INSTALLED_PATH=$PWD
+  echo "export GOTHOMIS_INSTALLED_PATH=$PWD" >> ~/.bash_profile
+  echo $GOTHOMIS_INSTALLED_PATH
+  source ~/.bash_profile
+
+✅SET TIMESTAMP FOR COMMAND HISTORY
+   nano .bash_profile
+      source ~/.bashrc
+
+  nano .bashrc
+      export HISTTIMEFORMAT="%F %T "
+      
+✅DISABLE SWAP MEMORY
+   sudo swapon --show	
+   sudo swapoff -a
+   sudo nano /etc/fstab
+     Comment tha Last Line that consist swap configuration i.e 
+     #/swap.img      none    swap    sw      0       0
+   CTRL + X to exit  
+
+      
+✅EDIT .env file to Match your New Server Environment
+    Edit Server IP Adress
+    Edit Postgres Credentials Username & Password to not be thes Same as test Environment Credentials
+    
+✅ MAKE SURE FIREWALL IS DISABLLED
+   sudo ufw status
+   sudo ufw disable
+
+
+✅DEPLOY A SERVICE ONE AFTER ANOTHER BY EDITING A deploy-test.sh Script
+  cd /home/ramis/phmis/services/gothomis-web
+  npm run prebuild
+  npm install --force
+  sudo npm install -g @angular/cli
+  ng build
+  
+  chmod +x deploy-test.sh
+  nano deploy-test.sh
+    Edit GitLab IP Address
+    Edit Gitlab Brach from test to prod or any branch yo have name on GitLab
+    Edit Gitlab URL to Match your Current URL
+    UnComment One Service after another starting from Main services which are (gothomis-web,gothomis-gateway-service,gothomis-gateway-service) followed by other services.
+  
+✅RUN THE FOLLOWING COMMAND TO LOAD A JASPER REPORT DOCKER IMAGES(Since it have been removed to Docker Hub)  
+  zcat bitnami-jasperreports-image.tar.gz | docker load
+
+
+✅After Commenting and Deploying one Service after Another,Now Run the following command to make sure all services containers are running
+  docker compose up -d
+  docker compose down
+  sudo systemctl restart docker.service
+  docker compose up -d
+  
+
+
+✅OTHER TROBLESHOTING AND MANAGEMENT COMMANDS
+  ✔️STOPING & STARTING A SPECIFIC DOCKER CONTAINER
+     docker compose stop gothomis-billing-service
+     docker compose up -d gothomis-billing-service
+     docker compose restart gothomis-billing-service        👉 Restart container (faster than stop + up)
+  
+  ✔️ CHECK LOGS PER CONTAINER
+      docker logs -f gothomis-insurance-service-container                  👉streams logs from the beginning
+      docker logs -f gothomis-billing-service-container | grep hikari    👉 Filter logs (e.g., errors only, keyword like hikari etc)
+      docker logs --tail 500 -f gothomis-billing-service-container       👉Modified Command (last 500 lines + follow)
+      docker logs --tail 500 gothomis-billing-service-container          👉Show last 500 lines only (no streaming)
+	  docker logs gothomis-insurance-service-container 2>&1 | grep -i -E "RUGEMA"
+	  docker logs gothomis-insurance-service-container 2>&1 | grep -i -B 10 -A 20 "verification.nhif"
+  
+  ✔️ CHECK RUNNING CONTAINERS
+     docker ps                             👉 Show running containers
+     docker ps -a                          👉 Show all containers (including stopped)
+     docker compose ps                     👉 Show compose services status
+  
+  ✔️ CHECK CONTAINER RESOURCE USAGE (VERY IMPORTANT 🔥)
+     docker exec -it gothomis-billing-service-container bash
+     docker exec -it gothomis-billing-service-container sh   👉 If bash not available
+  
+  ✔️ CHECK CONTAINER DETAILS / CONFIGURATION
+     docker inspect gothomis-billing-service-container       👉 Full JSON details
+     docker inspect --format='{{.State.Status}}' gothomis-billing-service-container   👉 Running status only
+  
+  ✔️ CHECK PORT MAPPING
+     docker port gothomis-billing-service-container          👉 Shows exposed ports
+  
+  ✔️ VIEW DOCKER IMAGES
+     docker images                                           👉 List all images
+     docker images | grep gothomis                           👉 Filter specific images
+  
+  ✔️ REMOVE UNUSED / DANGLING IMAGES (CLEANUP 🔥)
+      docker image prune -f                                   👉 Remove unused images
+      docker system prune -a -f                               👉 Clean everything unused (careful!)
+  
+  ✔️ CHECK DISK USAGE (IMPORTANT FOR PRODUCTION)
+      docker system df                                        👉 Shows disk usage
+  
+  
+  ✔️ REBUILD WITHOUT CACHE (FOR STUBBORN ISSUES 🔥)
+      docker compose build --no-cache gothomis-billing-service
+  
+  ✔️ FORCE RECREATE CONTAINER
+      docker compose up -d --force-recreate gothomis-billing-service
+  
+  ✔️ CHECK NETWORK ISSUES
+      docker network ls                                       👉 List networks
+      docker network inspect bridge                           👉 Inspect default network
+  
+  ✔️ COPY FILES FROM/TO CONTAINER
+      docker cp gothomis-billing-service-container:/app/logs ./logs   👉 Copy from container
+      docker cp ./config.yml gothomis-billing-service-container:/app  👉 Copy to container
+  
+  ✔️ CHECK ENVIRONMENT VARIABLES
+      docker exec gothomis-billing-service-container env
+  
+  ✔️ CHECK HEALTH STATUS (IF CONFIGURED)
+      docker inspect --format='{{.State.Health.Status}}' gothomis-billing-service-container
+  
+  ✔️ RESTART ALL SERVICES (FULL RESET)
+      docker compose down
+      docker compose up -d
+      
+  ✔️ TO CHECK CONFIGURED & CURRENTLY USED SHARED MEMORY(shm) FOR POSTGRES DOCKER CONTAINER
+      docker exec -it gothomis-billing-service-postgres df -h /dev/shm
+	  
+  ✔ RETURN TO PREVIOUS IMAGES
+      docker compose config --services
+	  docker images | grep gothomis-web-image | tail -7
+	  WEB===
+	  docker tag gothomis-web-image:backup-20260914212220 gothomis-web-image:latest
+	  docker compose up -d --force-recreate gothomis-web
+	  CONSULTATION==
+	  docker tag gothomis-consultation-service-image:backup-20260914212621 gothomis-consultation-service-image:latest
+	  docker compose up -d --force-recreate gothomis-consultation-service
+	  INSURANCE
+	  docker tag gothomis-insurance-service-image:backup-202609151907271 gothomis-insurance-service-image:latest
+	  docker compose up -d --force-recreate gothomis-insurance-service
+	  
+	  docker compose up -d --force-recreate gothomis-client-service
+	  
+	  
+	  
+  
+   ✔️ ⚠️ PRO TIP (Based on this environment)
+
+  Since you’re running multiple PostgreSQL + microservices:
+
+  👉 Always combine:
+
+   docker stats
+   docker logs --tail 200 -f <container>
+
+  This helps you quickly detect:
+    👉High CPU (performance issues)
+    👉DB connection pool exhaustion (Hikari)
+    👉Memory leaks
+    
+    
+SOLVING LOADING SLOWNESS DURING EDITING FILE IN GITLAB AND COMMITING ERROR(❌ 400 Bad Request & ❌ 500 Internal Server Error)
+
+STEP1:
+sudo nano /etc/gitlab/gitlab.rb
+   gitlab_rails['trusted_proxies'] = ['127.0.0.1', '192.168.57.29']
+   external_url 'http://192.168.57.29:8085'
+   nginx['listen_port'] = 8083
+   gitlab_workhorse['listen_network'] = "tcp"
+   gitlab_workhorse['listen_addr'] = "127.0.0.1:8083"
+   puma['worker_processes'] = 4
+   puma['per_worker_max_memory_mb'] = 650
+   prometheus_monitoring['enable'] = false
+   sudo gitlab-ctl reconfigure
+   sudo gitlab-ctl restart
+
+STEP2:
+sudo nano /etc/apache2/sites-enabled/gitlab.conf
+<VirtualHost *:8085>
+    ServerName 192.168.57.29
+
+    ProxyPreserveHost On
+    ProxyRequests Off
+    AllowEncodedSlashes NoDecode
+
+    ProxyPass / http://127.0.0.1:8083/ nocanon
+    ProxyPassReverse / http://127.0.0.1:8083/
+
+    RequestHeader set Host "192.168.57.29:8085"
+    RequestHeader set X-Forwarded-Host "192.168.57.29:8085"
+    RequestHeader set X-Forwarded-Proto "http"
+    RequestHeader set X-Forwarded-Ssl "off"
+    RequestHeader set X-Forwarded-Port "8085"
+
+    ProxyTimeout 300
+</VirtualHost>
+
+sudo a2enmod proxy
+sudo a2enmod proxy_http
+sudo a2enmod headers
+sudo systemctl restart apache2
+
+
+STEP3:
+Logout and Login Back to Gitlab UI and try to edit any file and the Commit it for verification
+Loading Slowness & Error will be Solved
+
+
+GOTHOMIS SYSTEM OPTIMIZATION
+Applicaton/Service Level Optimization
+  Tomcat Threads
+  Hikari Connections
+  RabbitMQ Consumers Adjustments
+  Nginx Configuration Optimization
+  
+Database Level Optimization
+
+PGADMIN 
+PGADMIN_USER=pgadmin@gothomis.go.tz
+PGADMIN_PASS=PGAdmin_phmis_gothomis_test_pass

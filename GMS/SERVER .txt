@@ -1,0 +1,125 @@
+MAIL SYSTEM SERVER
+SERVER NAME                              PRIVATE IP             PUBLIC IP
+MBOX                                   192.168.57.200         197.149.179.41
+WEB                                    192.168.57.99          197.149.179.42
+ADMIN                                  192.168.57.98          197.149.179.43
+SMTP                                   192.168.57.97          197.149.179.44
+MX                                     192.168.57.96          197.149.179.46
+FILTER                                 192.168.57.95          
+SMTP2                                  192.168.57.94          197.149.179.45
+WINDOW                                 192.168.57.79          154.118.230.185        
+USERNAME Administrator
+Password Tpf@20262026
+
+DR SITE
+SERVER NAME                              PRIVATE IP             PUBLIC IP
+MBOX                                   192.168.10.200         
+WEB                                    192.168.10.79          
+ADMIN                                  192.168.10.78          
+SMTP                                   192.168.10.77          
+MX                                     192.168.10.76          
+FILTER                                 192.168.10.75          
+SMTP1                                  192.168.10.74          
+
+USERNAME erickmtei
+
+BILLING
+IP= 192.168.57.77
+USERNAME= billingdb
+PASSWORD= Pori_@26dB
+
+FAMIS
+IP= 192.168.10.26
+USERNAME= oliens1
+PASSWORD= olienqqqqqs
+
+HRMIS NEW AND USALAMA PORTAL
+IP= 192.168.10.81
+USERNAME= hrmis
+PASSWORD= hrmis!@26&%
+
+HRMIS
+IP= 192.168.10.12
+USERNAME= hrmis
+PASSWORD= tpf@kanzidata2023
+
+E-OFFICE
+IP= 192.168.57.52
+USERNAME= eoffice
+PASSWORD= red&$&ballet2022
+
+CEWER
+IP= 192.168.57.22
+USERNAME= cewer
+PASSWORD= tpf@warning111
+
+AJIRA
+IP= 192.168.57.22
+USERNAME= ajira
+PASSWORD= ajira@magu002
+
+PCC LORMIS
+IP= 192.168.57.34
+USERNAME= pcclormis
+PASSWORD= tpsc@pakamchanga44
+
+UJU
+IP= 192.168.10.52
+USERNAME= ujudb
+PASSWORD= uju&kuzik@n@
+
+RTO CHECK
+IP= 192.168.10.4
+USERNAME= police
+PASSWORD= sms@tpf.2016
+
+RAMIS
+IP= 192.168.57.29
+USERNAME= ramis
+PASSWORD= tpf@ramis26
+
+ZNZ,TPS AND KIDATU,RAMIS
+IP= 192.168.10.91
+USERNAME= ramis
+PASSWORD= meru@#26%
+
+BOHARI
+IP= 192.168.10.23
+USERNAME= pms
+PASSWORD= tpf@storemp4
+
+BILLING REPLICATION
+IP= 192.168.57.9
+USERNAME= 
+PASSWORD= 
+
+POS
+IP= 192.168.57.10
+USERNAME= 
+PASSWORD= 
+
+CAMERA
+IP= 192.168.57.10:81
+USERNAME
+PASSWORD
+
+FAMIS WINDOW SERVER
+IP=192.168.55.9
+USERNAME=administrator
+PASSWORD=Famishq@2024
+
+GITLAB SERVER
+user: ramis
+password: tpf@ramis26
+address: 192.168.57.29
+
+TPF Backup Dom
+	IP Local: 192.168.5.21
+    IP MPLS: 192.168.55.71
+	user: admintpf
+	password: @1234@
+	
+PHMIS
+IP= 192.168.10.84
+USERNAME=phmis_root
+PASSWORD=Tan@police@2026

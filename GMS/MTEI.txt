@@ -1,0 +1,230 @@
+WEB PR
+it.supportphq@tpf.go.tz
+
+/var/www/html/program/localization/en_US/labels.inc:$labels['supportteam'] = 'For any Technical inquiry, Please contact your Support Team at : $supportemail';  ==line no 832
+/var/www/html/plugins/ega_current_identity/ega_current_identity.php:        $supportEmail = '<span style="unicode-bidi: bidi-override;direction: rtl;">@troppustci</span>'. $this->rc->config->get('username_domain');
+
+the concept That weird HTML:
+<span style="unicode-bidi: bidi-override; direction: rtl;">
+is used to:
+reverse text
+hide email from bots (anti-scraping trick)
+If you hardcode plain email, you lose that protection (usually fine internally).
+means in code is qhptroppus.ti === it.supportphq
+
+MBOX DR
+response --> issue ya database missing table
+/var/www/html/logs/errors.log
+run this sql on mysql 
+CREATE TABLE `responses` (   `response_id` int(11) NOT NULL AUTO_INCREMENT,   `user_id` int(10) unsigned NOT NULL,   `name` varchar(255) NOT NULL,   `data` text DEFAULT NULL,   `is_html` tinyint(1) DEFAULT 0,   `changed` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),   `del` tinyint(1) DEFAULT 0,   PRIMARY KEY (`response_id`) ) ENGINE=InnoDB AUTO_INCREMENT=319 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+MBOX DR REPLICATION
+USING SYNCREPL
+/etc/openldap/slapd.conf
+
+# Set directory permission.
+mode        0700
+#Added for LDAP replication from Master ldap IP:--> 192.168.44.200 translated to 192.168.57.200
+#---Added by Coplo Arafat Bakari:+255736323121 And PC Erick
+syncrepl  rid=001
+            provider=ldap://192.168.57.200:389
+            type=refreshAndPersist
+            schemachecking=on
+            retry="5 5 300 +"
+            interval=00:00:00:10
+            searchbase="o=domains,dc=tpf,dc=go,dc=tz"
+            attrs="*,+"
+            scope=sub
+            bindmethod=simple
+            binddn="cn=vmail,dc=tpf,dc=go,dc=tz"
+            credentials=An63HtZ3dT51W0we0JsMldj6voR6Kndy
+
+check connectivity
+telnet PR-IP 389
+Check contextCSN
+ldapsearch -x -D "cn=vmail,dc=tpf,dc=go,dc=tz" -W \
+-b "o=domains,dc=tpf,dc=go,dc=tz" -s base contextCSN
+
+ldapsearch -x -H ldap://192.168.57.200 \
+-D "cn=vmail,dc=tpf,dc=go,dc=tz" -W \
+-b "o=domains,dc=tpf,dc=go,dc=tz" -s base contextCSN
+
+MBOX DR
+ISSUE USER LOGIN
+nano /etc/dovecot/conf.d/10-auth.conf
+
+Change this:
+!include auth-system.conf.ext
+#!include auth-ldap.conf.ext
+To this:
+#!include auth-system.conf.ext
+!include auth-ldap.conf.ext
+
+STILL NO LOGIN
+An63HtZ3dT51W0we0JsMldj6voR6Kndy
+
+STEP 1 OUTPUT
+TEST LDAP data mismatch
+
+[root@tpf-mbox-pr-site dovecot]# ldapsearch -x -D "cn=vmail,dc=tpf,dc=go,dc=tz" -W \
+-b "o=domains,dc=tpf,dc=go,dc=tz" \
+"(mail=postmaster@tpf.go.tz)"
+Enter LDAP Password: 
+# extended LDIF
+#
+# LDAPv3
+# base <o=domains,dc=tpf,dc=go,dc=tz> with scope subtree
+# filter: (mail=postmaster@tpf.go.tz)
+# requesting: ALL
+#
+
+# postmaster@tpf.go.tz, Users, tpf.go.tz, domains, tpf.go.tz
+dn: mail=postmaster@tpf.go.tz,ou=Users,domainName=tpf.go.tz,o=domains,dc=tpf,d
+ c=go,dc=tz
+objectClass: inetOrgPerson
+objectClass: shadowAccount
+objectClass: amavisAccount
+objectClass: mailUser
+objectClass: top
+cn: postmaster
+sn: postmaster
+uid: postmaster
+givenName: postmaster
+mail: postmaster@tpf.go.tz
+accountStatus: active
+homeDirectory: /tpf_mails/vmail1/tpf.go.tz/p/o/s/postmaster/
+mailQuota: 104857600
+userPassword:: hfiwefmfwfhiowefjnisodkosmosmmdowjiwu=
+enabledService: mail
+enabledService: internal
+enabledService: doveadm
+enabledService: smtp
+enabledService: smtpsecured
+enabledService: smtptls
+enabledService: pop3
+enabledService: pop3secured
+enabledService: pop3tls
+enabledService: imap
+enabledService: imapsecured
+enabledService: imaptls
+enabledService: deliver
+enabledService: lda
+enabledService: lmtp
+enabledService: forward
+enabledService: senderbcc
+enabledService: recipientbcc
+enabledService: managesieve
+enabledService: managesievesecured
+enabledService: sieve
+enabledService: sievesecured
+enabledService: sievetls
+enabledService: displayedInGlobalAddressBook
+enabledService: shadowaddress
+enabledService: lib-storage
+enabledService: indexer-worker
+enabledService: dsync
+enabledService: domainadmin
+enabledService: sogo
+enabledService: sogowebmail
+enabledService: sogocalendar
+enabledService: sogoactivesync
+domainGlobalAdmin: yes
+
+# search result
+search: 2
+result: 0 Success
+
+# numResponses: 2
+# numEntries: 1
+[root@tpf-mbox-pr dovecot]# 
+
+[root@tpf-mbox-dr-site dovecot]# ldapsearch -x -D "cn=vmail,dc=tpf,dc=go,dc=tz" -W \
+-b "o=domains,dc=tpf,dc=go,dc=tz" \
+"(mail=postmaster@tpf.go.tz)"
+Enter LDAP Password: 
+# extended LDIF
+#
+# LDAPv3
+# base <o=domains,dc=tpf,dc=go,dc=tz> with scope subtree
+# filter: (mail=postmaster@tpf.go.tz)
+# requesting: ALL
+#
+
+# postmaster@tpf.go.tz, Users, tpf.go.tz, domains, tpf.go.tz
+dn: mail=postmaster@tpf.go.tz,ou=Users,domainName=tpf.go.tz,o=domains,dc=tpf,d
+ c=go,dc=tz
+objectClass: inetOrgPerson
+objectClass: shadowAccount
+objectClass: amavisAccount
+objectClass: mailUser
+objectClass: top
+cn: postmaster
+sn: postmaster
+uid: postmaster
+givenName: postmaster
+mail: postmaster@tpf.go.tz
+accountStatus: active
+homeDirectory: /tpf_mails/vmail1/tpf.go.tz/p/o/s/postmaster/
+mailQuota: 104857600
+userPassword:: hfiwefmfwfhiowefjnisodkosmosmmdowjiwu=
+enabledService: mail
+enabledService: internal
+enabledService: doveadm
+enabledService: smtp
+enabledService: smtpsecured
+enabledService: smtptls
+enabledService: pop3
+enabledService: pop3secured
+enabledService: pop3tls
+enabledService: imap
+enabledService: imapsecured
+enabledService: imaptls
+enabledService: deliver
+enabledService: lda
+enabledService: lmtp
+enabledService: forward
+enabledService: senderbcc
+enabledService: recipientbcc
+enabledService: managesieve
+enabledService: managesievesecured
+enabledService: sieve
+enabledService: sievesecured
+enabledService: sievetls
+enabledService: displayedInGlobalAddressBook
+enabledService: shadowaddress
+enabledService: lib-storage
+enabledService: indexer-worker
+enabledService: dsync
+enabledService: domainadmin
+enabledService: sogo
+enabledService: sogowebmail
+enabledService: sogocalendar
+enabledService: sogoactivesync
+domainGlobalAdmin: yes
+
+# search result
+search: 2
+result: 0 Success
+
+# numResponses: 2
+# numEntries: 1
+[root@tpf-mbox-dr dovecot]# 
+
+STEP 2 OUTPUT
+doveadm auth test postmaster@tpf.go.tz 'password'
+
+[root@tpf-mbox-dr dovecot]# doveadm auth test postmaster@tpf.go.tz
+Password: 
+passdb: postmaster@tpf.go.tz auth succeeded
+extra fields:
+  user=postmaster@tpf.go.tz
+  
+[root@tpf-mbox-dr dovecot]# 
+
+STEP 3 OUTPUT
+👉 Try direct IMAP login:
+telnet localhost 143
+nikalogin > a login postmaster@tpf.go.tz TPF@2026!!
+a OK [CAPABILITY IMAP4rev1 SASL-IR LOGIN-REFERRALS ID ENABLE IDLE SORT SORT=DISPLAY THREAD=REFERENCES THREAD=REFS THREAD=ORDEREDSUBJECT MULTIAPPEND URL-PARTIAL CATENATE UNSELECT CHILDREN NAMESPACE UIDPLUS LIST-EXTENDED I18NLEVEL=1 CONDSTORE QRESYNC ESEARCH ESORT SEARCHRES WITHIN CONTEXT=SEARCH LIST-STATUS BINARY MOVE SNIPPET=FUZZY PREVIEW=FUZZY PREVIEW STATUS=SIZE SAVEDATE LITERAL+ NOTIFY SPECIAL-USE QUOTA ACL RIGHTS=texk] Logged in
+

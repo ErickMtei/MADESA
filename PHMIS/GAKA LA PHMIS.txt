@@ -1,0 +1,161 @@
+
+
+LOGIN AS NATIONAL ADMIN
+
+--> Sajili kituo
+--> Create facility incharge
+
+LOGIN AS FACILITY INCHARGE
+
+--> User Management   
+    create all users
+
+--> System setting 
+    --> Item setups
+        -->Item mapping 
+        -->Reception Items
+        -->Facility Item Prices
+        -->Facility cost sharing
+
+    --> Pharmacy setups
+        -->Stores   
+           create store and grant access
+        -->Manage Vendor 
+            create vendors
+        -->Reorder Levels 
+           create reoder levels
+
+     --> Ward Management
+        -->Admission Days   
+           Tumlipishe mgonjwa baada ya siku ngap ?
+        -->Wards list
+           create ward , create beds and assing IPD Nurse
+        
+      --> Investigation setups
+        -->Department Access
+           mapping access to those technician and technologist
+
+      --> Billing Setup
+          payment method either cash o gepg
+
+--> Insurance
+    -->NHIF
+       Item mapping 
+       NHIF credential
+
+
+LOGIN AS FACILITY STORE INCHARGE
+
+--> Pharmacy Management
+     -->Item Receiving   
+        Kupokea dawa kutoka kwa vendor , kweny sehemu ya price tunaandika price ya dawa moja sio ya batch zima
+     -->Store Balance
+        Kuangalia balace ya dawa zilizopo
+     -->Requisition & Issuing
+        kuomba dawa na kuthibitisha kutoa dawa 
+     -->Incoming Items  
+        Kupokea dawa kutoka sehemu ulipoziomba
+     -->Dispensing
+        Kutoa dawa kwa mgonjwa ila kabla ya kutoa ni kumuandalia bill ya dawa
+     -->Stock Taking
+        Dawa ambazo hazipo sawa kwa matumizi
+     -->Direct Dispensing
+        Kutoa dawa bila utaratibu wala malipo
+     -->Nearly Expired
+        Zinazokaribia kuaharibika
+     -->Dispensing Book
+        Ripoti ya dawa ulizozitoa
+     -->Reorder Lists
+
+AT THIS STAGE FACILITY STORE RECEVING ITEM
+
+
+LOGIN AS DISPENCER 
+
+-->Pharmacy Management
+-->Requisition
+        kuomba dawa kwa main pharmacy
+
+
+LOGIN AS FACILITY STORE INCHARGE
+
+-->Pharmacy Management
+   -->Issuing
+       kutoa dawa kwa dispencer
+
+LOGIN AS DISPENCER 
+
+-->Pharmacy Management
+   -->Incoming Items  
+        Kupokea dawa kutoka main pharmacy
+
+
+
+STRUCTURE WHEN PATIENT ARRIVE
+  
+ DATA CLECK --> CASHIER --> CLINICIAN --> CASHIER --> LABORATORY --> CLINICIAN --> PHARMACY
+
+
+LOGIN AS DATA CLECK
+
+-->Client Management
+   --> Client Registration
+
+IF NI MTU WA BIMA 
+  --> Card Verification
+
+LOGIN AS CASHIER 
+--> Pending Billing 
+  use MRN to collect cash or gepg
+
+--> Bulk cash Depost
+    ikitokea umepokea cash later unakuja create gepg kwa ajili ya kulipa zile pesa ulizopokea cash
+
+LOGIN AS CLINICIAN
+-->Outpatient Services
+   --> Consultation 
+       --> Vital ni zile taarifa za mwanzonii kabisa sehemu muhimu ni field ya weight (KG) 
+       --> CLECK SHEET  Maswali ya mwanzo kati ya mgonjwa na daktarii kujua anajisikiaje
+       -->
+       -->
+       -->
+       -->
+       -->
+       -->
+
+IF NI MTU WA BIMA SEHEMU MUHIMU NI KWENY TREATMENT - PROCEDURE 
+kwa mtu wa bima ili aweze kulipia consultation lazima ikajazwe kweny procedure
+
+LOGIN AS CASHIER
+--> Pending Billing 
+  use MRN to collect cash or gepg
+
+LOGIN AS INVESTIGATION
+--> Sample Collection
+-->Laboratory Results Posting 
+    POST
+-->Result Approval
+   APPROVE
+
+LOGIN AS CLINICIAN
+-->Outpatient Services
+   --> Consultation 
+       -->Define diagnosis
+       -->Treatment -- Medication
+
+LOGIN AS PHARMACY
+
+-->Dispensing apa sasa tutatengeneza bill ya dawa zake  ataenda kwa cashier akalipie izo dawa kwanza , ndo aje achukue
+  
+
+
+
+
+
+
+PATIENT ARRIVE AS USER FREE
+
+
+           
+ 
+   

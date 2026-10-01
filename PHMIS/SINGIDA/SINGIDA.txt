@@ -1,0 +1,50 @@
+SINGIDA
+
+KUNDUCHI 121590-4
+
+FACILITY CODE 107020-0
+EMAIL  dispensary.singida@tpf.go.tz
+
+NHIF CODE  00303
+KEY  TKnwXRyU23T9el4HxckAJg==
+
+==========================================================
+USERS 
+
+FACILITY INCHARGE ..... mary.antapa@tpf.go.tz
+
+CLINICIAN ........ deogratius.sisiye@tpf.go.tz
+
+OPD NURSE .....  edina.nyagalu@tpf.go.tz
+
+CLINICIAN..... 
+
+FACILITY STORE INCHARGE...  enjo.yonah@tpf.go.tz
+                            alphonce.bilantanye@tpf.go.tz
+
+                             
+
+DISPENSII 
+DISPENSING 
+
+DATA CLECK .....  
+
+lablogist.........  revocatus.katisho@tpf.go.tz
+                    esther.lukindo@tpf.go.tz
+
+
+
+ESTER MELKIZEDEKI STEPHANO
+Check no: 112248657
+Phone no: 0762247461
+Elimu : Certificate in Nursing 
+Kazi: Nurse assistant
+
+
+ENIDI WILLIAM MAGHIYA
+Check no: 11187938
+Phone no: 0752179453
+Elimu: Certificate in Nursing 
+Kazi : Nurse assistant
+
+

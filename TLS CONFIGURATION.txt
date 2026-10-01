@@ -1,0 +1,598 @@
+SETTING UP A FORWARD PROXY
+
+A forward proxy sits in front of clients and makes requests to the internet on their behalf. The most common tool is Squid, so I'll use it for the main example.
+
+Common use cases
+Control and log outbound web access (corporate or school networks)
+Cache frequently requested content to save bandwidth
+Block sites or categories
+Hide client IPs from destination servers
+Give servers in a private network controlled internet access
+Squid setup (Ubuntu/Debian)
+
+1. Install
+
+bash
+sudo apt update
+sudo apt install squid -y
+
+2. Back up and edit the config
+
+bash
+sudo cp /etc/squid/squid.conf /etc/squid/squid.conf.bak
+sudo nano /etc/squid/squid.conf
+
+3. Minimal working config
+
+squid
+# Port the proxy listens on
+http_port 3128
+
+# Define who is allowed (your internal network)
+acl localnet src 192.168.1.0/24
+
+# Safe ports
+acl SSL_ports port 443
+acl Safe_ports port 80 443
+acl CONNECT method CONNECT
+
+# Rules (order matters, first match wins)
+http_access deny !Safe_ports
+http_access deny CONNECT !SSL_ports
+http_access allow localhost
+http_access allow localnet
+http_access deny all
+
+# Cache
+cache_mem 256 MB
+maximum_object_size 50 MB
+cache_dir ufs /var/spool/squid 5000 16 256
+
+# Logs
+access_log /var/log/squid/access.log
+
+4. Restart and enable
+
+bash
+sudo systemctl restart squid
+sudo systemctl enable squid
+
+5. Open the port (only to your internal network)
+
+bash
+sudo ufw allow from 192.168.1.0/24 to any port 3128
+Configuring clients
+
+Browser: Settings → Network/Proxy → Manual proxy → proxy-ip:3128.
+
+Linux/CLI:
+
+bash
+export http_proxy=http://192.168.1.10:3128
+export https_proxy=http://192.168.1.10:3128
+
+Test it:
+
+bash
+curl -x http://192.168.1.10:3128 https://example.com -I
+
+Then watch it work: sudo tail -f /var/log/squid/access.log
+
+Blocking sites
+squid
+acl blocked_sites dstdomain .facebook.com .tiktok.com
+http_access deny blocked_sites
+
+Place this before the allow rules. You can also load a list from a file:
+
+squid
+acl blocked_sites dstdomain "/etc/squid/blocked.txt"
+Requiring authentication
+bash
+sudo apt install apache2-utils
+sudo htpasswd -c /etc/squid/passwd user1
+squid
+auth_param basic program /usr/lib/squid/basic_ncsa_auth /etc/squid/passwd
+auth_param basic realm Proxy Login
+acl authenticated proxy_auth REQUIRED
+http_access allow authenticated
+HTTPS and TLS
+
+This connects back to your first question. For HTTPS sites, the client sends a CONNECT request and the proxy creates a tunnel. The proxy sees only the destination hostname and port, not the content, and the TLS session stays end-to-end between client and website.
+
+To inspect HTTPS traffic (filtering, malware scanning), you need SSL bumping (TLS interception):
+
+The proxy acts as a man-in-the-middle with its own CA certificate.
+You must install that CA on every client device.
+It has real privacy and legal implications, so use it only on networks you own, and inform users.
+
+Most setups skip it and rely on hostname-based filtering.
+
+Alternatives
+Tinyproxy: very lightweight, good for simple use.
+Nginx: can act as a forward proxy for plain HTTP but doesn't support HTTPS CONNECT natively, so it isn't recommended for this.
+mitmproxy: for debugging and inspecting traffic.
+Security warning
+
+Never run an open proxy. If you omit the acl restrictions and expose port 3128 to the internet, attackers will use it to hide their traffic, and your IP may get blacklisted. Always restrict by source IP or require authentication, and verify with an external port scan.
+
+                               Forward vs. reverse (recap)
+	                Forward proxy	                Reverse proxy
+Sits in front of	Clients	                         Servers
+Configured on	Client side (browser/env)	         Server side (transparent to clients)
+Protects/hides	Client identity	                     Server identity
+Example	            Squid	                         Nginx in front of an app
+
+
+==================================================================================================================
+
+SSL/TLS CONFIGURATION FOR SECURE COMMUNICATIONS
+
+Here are the core practices, with example configs for common servers. Tell me your stack and I can tailor this.
+
+Core principles
+
+Protocol versions: Enable TLS 1.3 and TLS 1.2 only. Disable SSLv3, TLS 1.0, and TLS 1.1, which are deprecated and vulnerable (POODLE, BEAST, etc.).
+
+Cipher suites: Use AEAD ciphers with forward secrecy (ECDHE key exchange). TLS 1.3 suites are already safe by design; for TLS 1.2, allow only ECDHE with AES-GCM or ChaCha20-Poly1305. Avoid RC4, 3DES, CBC-mode suites, and anything with NULL, EXPORT, or MD5.
+
+Certificates:
+
+Use certificates from a trusted CA (Let's Encrypt is free and automatable).
+Prefer ECDSA (P-256) or RSA 2048+ bits (RSA 3072 for long-lived needs).
+Serve the full chain (leaf + intermediates), not just the leaf.
+Automate renewal (certbot, acme.sh, or your cloud provider's manager). Certificate lifetimes are shrinking, so manual renewal is a growing liability.
+
+Headers and extras:
+
+HSTS forces HTTPS on returning visitors. Start with a short max-age, then increase.
+OCSP stapling speeds up revocation checks and improves privacy.
+Redirect all HTTP to HTTPS.
+Protect private keys (permissions 600, ideally a secrets manager or HSM).
+Nginx example
+nginx
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+    ssl_prefer_server_ciphers off;
+
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_tickets off;
+
+    ssl_stapling on;
+    ssl_stapling_verify on;
+
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+}
+
+server {
+    listen 80;
+    server_name example.com;
+    return 301 https://$host$request_uri;
+}
+Apache example
+apache
+SSLProtocol             -all +TLSv1.2 +TLSv1.3
+SSLCipherSuite          ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305
+SSLHonorCipherOrder     off
+SSLSessionTickets       off
+SSLUseStapling          on
+SSLStaplingCache        "shmcb:logs/ssl_stapling(32768)"
+Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+Mutual TLS (mTLS)
+
+For service-to-service or high-security APIs, require client certificates too. In Nginx:
+
+nginx
+ssl_client_certificate /etc/ssl/ca.crt;
+ssl_verify_client on;
+Testing and verification
+SSL Labs (ssllabs.com/ssltest): grades public-facing servers.
+testssl.sh: a command-line scanner that also works on internal hosts.
+OpenSSL: openssl s_client -connect example.com:443 -tls1_3 checks a specific protocol, and adding -showcerts displays the chain.
+Mozilla SSL Configuration Generator (ssl-config.mozilla.org): generates current recommended configs for most servers, and I'd check it for the latest cipher recommendations.
+Common mistakes
+Missing intermediate certificates, which causes errors on some clients.
+Letting certificates expire because renewal wasn't automated.
+Mixed content (HTTP resources on HTTPS pages).
+Setting HSTS preload or a long max-age before confirming every subdomain supports HTTPS.
+Leaving TLS 1.0/1.1 enabled for "compatibility" without checking whether any clients still need it.
+
+
+===========================================================================================================================
+Setting Up Nginx as a Reverse Proxy
+
+This walks through a full setup: install, basic proxying, TLS, and the settings that matter in production.
+
+1. Install Nginx
+
+Ubuntu/Debian:
+
+bash
+sudo apt update
+sudo apt install nginx -y
+sudo systemctl enable --now nginx
+
+RHEL/Rocky/Alma:
+
+bash
+sudo dnf install nginx -y
+sudo systemctl enable --now nginx
+
+Check it runs: curl -I http://localhost
+
+2. Prepare your backend
+
+Your app should listen on localhost only, for example 127.0.0.1:3000 (Node) or 127.0.0.1:8000 (Gunicorn/Django). This keeps it unreachable except through Nginx.
+
+3. Create the site config
+bash
+sudo nano /etc/nginx/sites-available/myapp
+
+Basic reverse proxy:
+
+nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name example.com www.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+Enable it:
+
+bash
+sudo ln -s /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/
+sudo nginx -t          # always test before reloading
+sudo systemctl reload nginx
+
+On RHEL-based systems there is no sites-available; put the file in /etc/nginx/conf.d/myapp.conf instead.
+
+4. Add HTTPS with Let's Encrypt
+bash
+sudo apt install certbot python3-certbot-nginx -y
+sudo certbot --nginx -d example.com -d www.example.com
+
+Certbot edits your config, adds the certificate, and sets up automatic renewal. Verify renewal with:
+
+bash
+sudo certbot renew --dry-run
+
+Final config (after hardening):
+
+nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name example.com www.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name example.com www.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+
+    # Upload size limit (default is only 1 MB)
+    client_max_body_size 20M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 5s;
+        proxy_send_timeout    60s;
+        proxy_read_timeout    60s;
+    }
+}
+5. Common configurations
+WebSockets
+nginx
+location /ws/ {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_read_timeout 3600s;
+}
+Multiple apps by path
+nginx
+location /api/ {
+    proxy_pass http://127.0.0.1:8000/;
+}
+location /admin/ {
+    proxy_pass http://127.0.0.1:9000/;
+}
+
+Trailing slash matters. proxy_pass http://127.0.0.1:8000/; strips the /api/ prefix before forwarding. Without the trailing slash, the full original path is passed through.
+
+Multiple apps by domain
+
+Create a separate server block per server_name, each with its own proxy_pass.
+
+Load balancing
+nginx
+upstream myapp {
+    least_conn;
+    server 127.0.0.1:3000;
+    server 127.0.0.1:3001;
+    server 127.0.0.1:3002 backup;
+    keepalive 32;
+}
+
+server {
+    ...
+    location / {
+        proxy_pass http://myapp;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";   # needed for upstream keepalive
+    }
+}
+
+Methods: round-robin (default), least_conn, ip_hash (sticky by client IP).
+
+Caching
+nginx
+# In http {} context (e.g., /etc/nginx/nginx.conf)
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=appcache:10m max_size=1g inactive=60m;
+
+# In location
+location /api/public/ {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_cache appcache;
+    proxy_cache_valid 200 10m;
+    add_header X-Cache-Status $upstream_cache_status;
+}
+Compression
+nginx
+gzip on;
+gzip_types text/plain text/css application/json application/javascript image/svg+xml;
+gzip_min_length 1024;
+Rate limiting
+nginx
+# In http {} context
+limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+
+# In location
+location /api/ {
+    limit_req zone=api burst=20 nodelay;
+    proxy_pass http://127.0.0.1:8000;
+}
+6. Getting the real client IP in your app
+
+Nginx forwards the client IP in X-Forwarded-For, but your app must be told to trust it, and only from the proxy:
+
+Express: app.set('trust proxy', 'loopback')
+Django: SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+Flask: wrap with ProxyFix
+
+Without this, apps often generate http:// redirect URLs or log every visitor as 127.0.0.1.
+
+7. Firewall and SELinux
+bash
+sudo ufw allow 'Nginx Full'    # 80 and 443
+sudo ufw deny 3000             # keep backend private
+
+On RHEL/Rocky with SELinux enforcing, Nginx is blocked from connecting to backends by default, which causes "502 Bad Gateway" with a permission denied error in the log:
+
+bash
+sudo setsebool -P httpd_can_network_connect 1
+8. Troubleshooting
+Symptom	Likely cause
+502 Bad Gateway	Backend is down, wrong port, or SELinux blocking
+504 Gateway Timeout	Backend too slow; raise proxy_read_timeout or fix the app
+413 Request Entity Too Large	Raise client_max_body_size
+App redirects to http://	Missing X-Forwarded-Proto or app not trusting it
+Wrong client IP in logs	App not configured to trust proxy headers
+WebSocket disconnects	Missing Upgrade/Connection headers or short timeout
+
+Useful commands:
+
+bash
+sudo nginx -t                         # test config
+sudo systemctl reload nginx           # apply without dropping connections
+sudo tail -f /var/log/nginx/error.log # first place to look
+sudo tail -f /var/log/nginx/access.log
+Quick checklist
+Backend bound to 127.0.0.1
+nginx -t passes
+HTTP redirects to HTTPS
+Certificate auto-renewal tested
+Forwarding headers set and app configured to trust them
+Firewall exposes only 80/443
+client_max_body_size and timeouts suit your app
+
+Tell me what your backend is (Node, Django, PHP-FPM, Docker containers, etc.) and I can give you a tailored config, including Docker Compose setups.
+
+tell me about compression and rate limiting then later talk about where used to tune according to your application and number of user
+
+Compression and Rate Limiting in Nginx
+
+Both are set at the proxy layer so your application doesn't have to handle them. Compression saves bandwidth, and rate limiting protects your backend.
+
+Part 1: Compression
+What it does
+
+Nginx compresses responses before sending them to the client (the browser decompresses automatically). Text-based content (HTML, CSS, JS, JSON, XML) typically shrinks 60-80%. This means faster page loads, especially on mobile networks, and lower bandwidth costs. The trade-off is CPU time on the proxy.
+
+Gzip (works everywhere)
+nginx
+# In http {} or server {} context
+gzip on;
+gzip_comp_level 5;          # 1-9; 4-6 is the sweet spot
+gzip_min_length 1024;       # skip tiny responses
+gzip_proxied any;           # also compress responses coming from backends
+gzip_vary on;               # adds "Vary: Accept-Encoding" for caches/CDNs
+gzip_types
+    text/plain
+    text/css
+    text/xml
+    application/json
+    application/javascript
+    application/xml
+    image/svg+xml
+    font/ttf
+    font/otf;
+
+text/html is always compressed when gzip is on, so you don't list it.
+
+Brotli (better ratio, needs a module)
+
+Brotli usually gives 15-25% smaller files than gzip. It isn't built into stock Nginx; install the libnginx-mod-http-brotli-filter and libnginx-mod-http-brotli-static packages (Debian/Ubuntu, availability varies) or build the module.
+
+nginx
+brotli on;
+brotli_comp_level 5;
+brotli_types text/plain text/css application/json application/javascript image/svg+xml;
+
+Browsers only send Brotli over HTTPS, and Nginx falls back to gzip for clients that don't support it.
+
+What NOT to compress
+
+Already-compressed formats gain nothing and waste CPU: JPEG, PNG, WebP, MP4, ZIP, PDF, WOFF2. Just leave them out of gzip_types.
+
+Pre-compression (best for static files)
+
+Compress once at build time instead of on every request:
+
+nginx
+gzip_static on;     # serves app.js.gz if it exists next to app.js
+
+Generate files with gzip -k -9 app.js in your build pipeline. You get maximum compression at zero runtime CPU cost.
+
+Check it works
+bash
+curl -H "Accept-Encoding: gzip" -I https://example.com/app.js
+# Look for: Content-Encoding: gzip
+Security note
+
+Compressing responses that mix secrets (CSRF tokens) with attacker-controlled input can enable BREACH attacks. Mitigate with per-request token masking (most frameworks do this) rather than disabling compression globally.
+
+Part 2: Rate Limiting
+What it does
+
+Restricts how many requests a client can make in a given time. It protects against brute-force logins, scrapers, abusive clients, and accidental traffic floods, and it keeps one heavy user from degrading service for everyone.
+
+Nginx uses the leaky bucket algorithm: requests drain out at a fixed rate, and a limited queue (burst) absorbs spikes.
+
+Request rate limiting (limit_req)
+nginx
+# http {} context: define zones
+limit_req_zone $binary_remote_addr zone=general:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=login:10m   rate=5r/m;
+
+limit_req_status 429;   # return "Too Many Requests" instead of default 503
+
+server {
+    location / {
+        limit_req zone=general burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3000;
+    }
+
+    location /login {
+        limit_req zone=login burst=3 nodelay;
+        proxy_pass http://127.0.0.1:3000;
+    }
+}
+
+Understanding the parameters:
+
+Parameter	Meaning
+$binary_remote_addr	The key: limits per client IP (compact form)
+zone=name:10m	Shared memory; 1 MB holds about 16,000 IPs
+rate=10r/s	Sustained allowed rate
+burst=20	Extra requests allowed to queue above the rate
+nodelay	Serve burst requests immediately instead of spacing them out
+delay=N	Serve the first N burst requests immediately, then throttle the rest
+
+Example behavior: with rate=10r/s burst=20 nodelay, a client can fire 21 requests instantly. After that, they're refused until the bucket refills at 10 per second.
+
+Connection limiting (limit_conn)
+
+Caps simultaneous connections per client, useful against slow-connection attacks and heavy downloaders:
+
+nginx
+limit_conn_zone $binary_remote_addr zone=perip:10m;
+
+location /downloads/ {
+    limit_conn perip 5;
+    limit_rate 500k;       # bandwidth cap per connection
+}
+Limiting by something other than IP
+
+IP is a poor key when many users share one address (offices, mobile carriers, universities, which is very common in many regions). Better keys:
+
+nginx
+# By API key header
+limit_req_zone $http_x_api_key zone=apikey:10m rate=100r/s;
+
+# By logged-in user or session cookie
+limit_req_zone $cookie_session_id zone=session:10m rate=20r/s;
+Allowlisting trusted clients
+nginx
+geo $limited {
+    default        1;
+    10.0.0.0/8     0;      # internal network
+    203.0.113.5    0;      # monitoring server
+}
+map $limited $limit_key {
+    0 "";                  # empty key = not limited
+    1 $binary_remote_addr;
+}
+limit_req_zone $limit_key zone=general:10m rate=10r/s;
+Behind a CDN or another proxy
+
+If Cloudflare or a load balancer sits in front of Nginx, $remote_addr is the proxy's IP, and you'd rate-limit everyone as one client. Use the realip module:
+
+nginx
+set_real_ip_from 173.245.48.0/20;   # the CDN's published ranges
+real_ip_header   X-Forwarded-For;
+real_ip_recursive on;
+
+Only trust headers from IP ranges you know, or attackers can spoof their address.
+
+Logging and testing
+nginx
+limit_req_log_level warn;
+bash
+# Quick test: 30 rapid requests
+for i in $(seq 1 30); do curl -s -o /dev/null -w "%{http_code}\n" https://example.com/api/; done
+
+Use limit_req dry_run=on (Nginx 1.17.1+ in the zone definition: limit_req_zone ...  then limit_req_dry_run on;) to log what would be blocked before enforcing.

@@ -1,0 +1,195 @@
+                                DOCKER INSTALLATION.
+                               ======================
+
+=================================================================
+Ongeza Docker GPG Key
+=================================================================
+
+sudo install -m 0755 -d /etc/apt/keyrings
+
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+
+=================================================================
+Ongeza Docker Repository
+=================================================================
+
+echo \
+"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+https://download.docker.com/linux/ubuntu \
+$(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+=================================================================
+Install Docker
+=================================================================
+
+sudo apt update
+
+sudo apt install -y \
+docker-ce \
+docker-ce-cli \
+containerd.io \
+docker-buildx-plugin \
+docker-compose-plugin
+
+================================================================================================
+VM to Container Discovery Guide
+When asked to containerize an existing VM-hosted application, first investigate the system before
+writing a Dockerfile.
+
+1. Identify the OS:
+cat /etc/os-release
+uname -a
+
+Example:
+Ubuntu 24.04
+This tells you what environment the application currently runs on.
+
+
+2. Find running services:
+systemctl list-units --type=service
+or
+ps aux
+
+You might discover:
+nginx
+php-fpm
+mysql
+redis
+Now you already know the application isn't just one process.
+
+
+3. Check listening ports:
+ss -tulpn
+
+Example:
+80
+443
+3306
+6379
+
+Now you know:
+80 → HTTP
+443 → HTTPS
+3306 → MySQL
+6379 → Redis
+
+
+
+4. Identify the application language by examining files:
+Should identify language version and its framework version
+PHP: index.php, composer.json
+Node.js: package.json , server.js
+Python: requirements.txt , app.py
+Java: pom.xml
+Go: go.mod
+
+
+5. Identify the web server:
+systemctl status nginx
+systemctl status apache2
+systemctl status httpd
+Now you know whether you're using Nginx or Apache.
+
+
+6. Locate database configuration (.env or config files):
+DB_HOST, DB_NAME, DB_USER, DB_PASSWORD
+
+
+7. Find environment variables (.env).
+Look for:
+  .env
+Example:
+APP_ENV=production
+DB_HOST=mysql
+REDIS_HOST=redis
+This is one of the most valuable files when containerizing an application.
+
+
+8. Check dependencies:    
+A professional tip
+
+One of the first things I do when I receive any unfamiliar project is inspect its root directory before opening any code. The files there tell you a lot:
+
+package.json → Node.js/React ecosystem
+composer.json → PHP/Composer
+requirements.txt or pyproject.toml → Python
+pom.xml or build.gradle → Java
+go.mod → Go
+.csproj → .NET     
+                                                 
+PHP Applications
+> cat composer.json
+Now you know:
+PHP version required: 8.2
+Framework: Laravel
+Additional libraries:
+Guzzle
+Spatie Permission
+These libraries must be installed in the container.
+
+Node.js Applications
+> cat package.json
+package-lock.json
+node_modules/
+
+you can also run:
+npm list
+
+
+Python Applications
+> cat requirements.txt.
+If a virtual environment exists:
+source venv/bin/activate
+pip list
+example 
+Flask
+Gunicorn
+Requests
+MySQLClient
+If you don't see a requirements.txt, look for:
+pyproject.toml
+or
+Pipfile
+
+
+9. Determine how the application starts:
+Ask:
+How is the application started today?
+Example:
+systemctl status myapp
+You might see:
+ExecStart=/usr/bin/python3 app.py
+or
+ExecStart=/usr/bin/node server.js
+That often becomes your CMD or ENTRYPOINT in the Dockerfile.
+
+
+10. Identify persistent storage:
+uploads, storage, logs directories.
+
+
+11. Discover external services:
+MySQL, PostgreSQL, Redis, RabbitMQ, SMTP, LDAP, etc.
+
+
+12. Check scheduled jobs:
+crontab -l
+or
+ls /etc/cron*
+
+Most technical information can be discovered from the server itself. Business requirements, scaling,
+backup policies, deployment procedures, and future architecture usually require discussions with
+developers or stakeholders.
+Typical workflow:
+SSH -> Identify OS -> Services -> Ports -> Application -> Configuration -> Database -> Storage ->
+Startup -> Dockerfile -> docker compose -> Test -> Deploy.
+
+
+Mindset:
+Do not ask 'How do I Dockerize this?'
+Ask 'What does this application need to run?

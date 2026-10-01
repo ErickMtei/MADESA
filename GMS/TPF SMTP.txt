@@ -1,0 +1,54 @@
+
+=========== MBOX FAILED TO PING SMTP ============================================
+smtp1# pfctl -t bruteforce -T show
+   71.6.135.131
+   192.168.44.200
+vi /etc/pf.conf
+19-block return out log proto { tcp udp } user _pbuild
+smtp1# pfctl -t bruteforce -T show                                                
+   71.6.135.131
+   192.168.44.200
+smtp1# pfctl -t bruteforce -T delete 192.168.44.200                               
+1/1 addresses deleted.
+
+IKIENDELEA KUSUMBUA RUN THIS COMMAND
+smtp1# grep -n -B3 -A3 bruteforce /etc/pf.conf
+smtp1# vi /etc/pf.conf
+
+--THEN UNACHECK THOSE RULES UNAMODIFY AFTER THAT SAVE THAT FILE
+
+smtp1# pfctl -f /etc/pf.conf
+smtp1# pfctl -t bruteforce -T delete 192.168.44.200
+
+
+==========KUSHIDWA KUSSH PAMOJA NA /VAR/LOG file does not exist================== 
+1. Bonyeza tu ENTER pale inapouliza "Enter pathname of shell or RETURN for sh:"
+
+2. Kisha andika:
+
+fsck_ffs -y /dev/rsd0e
+
+3. Ikimaliza, endesha tena kuhakikisha ni clean:
+
+fsck_ffs -y /dev/rsd0e
+
+(Ikisema hakuna makosa tena / clean, endelea. Ikiwa bado ina makosa, rudia amri hiyo hiyo mara ya tatu.)
+
+4. Ukishaona ni clean, andika:
+
+reboot
+
+Hiyo ndiyo yote. Subiri iboot, ione kama inafika kwenye login prompt ya kawaida (siyo hii single-user shell tena). Ukifika hapo, tuambie ndio tuendelee na hatua ya kuangalia mail queue.
+
+============================== COMMAND YA KUCHECK NAN ANATUMA MAIL NYING =====================
+
+cat /var/log/maillog |tr ' ' '\n'| grep @ | grep -v -w 'an\|a\|is'| sort| uniq -c| sort -nk1 -r| head -n 30 | grep from
+
+===============================
+
+
+Sep 16 09:20:11 tpf-mx postfix/smtpd[45036]: connect from mail-yx2-f13.google.com[74.125.224.141]
+Sep 16 09:20:13 tpf-mx policyd-spf[8636]: prepend Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=74.125.224.141; helo=mail-yx2-f13.google.com; envelope-from=suleimanjuma679@gmail.com; receiver=<UNKNOWN> 
+Sep 16 09:20:13 tpf-mx postfix/smtpd[45036]: NOQUEUE: reject: RCPT from mail-yx2-f13.google.com[74.125.224.141]: 554 5.7.1 Service unavailable; Client host [74.125.224.141] blocked using bl.spamcop.net; Blocked - see https://www.spamcop.net/bl.shtml?74.125.224.141; from=<suleimanjuma679@gmail.com> to=<openregistry.temeke@tpf.go.tz> proto=ESMTP helo=<mail-yx2-f13.google.com>
+Sep 16 09:20:14 tpf-mx postfix/smtpd[45036]: disconnect from mail-yx2-f13.google.com[74.125.224.141] ehlo=2 starttls=1 mail=1 rcpt=0/1 bdat=0/1 quit=1 commands=5/7
+Sep 16 09:20:32 tpf-mx postfix/smtpd[97931]: connect from unknown[159.200.240.59]

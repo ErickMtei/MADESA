@@ -1,0 +1,243 @@
+[root@tpf-box-admin iredadmin]# history
+    1  ip a
+    2  nmtui
+    3  ping 8.8.8.8
+    4  nmtui
+    5  ip a
+    6  history 
+    7  cd /root/
+    8  ll
+    9  dnf -y update;dnf -y install epel-release
+   10  dnf -y install bzip2 net-tools bash-completion wget curl screen tcpdump telnet zip unzip telnet sysstat htop tar rsync lsyncd yum-utils bind-utils
+   11  tar -xzf 1.7.4.tar.gz
+   12  cd iRedMail-1.7.4/
+   13  CHECK_NEW_IREDMAIL=NO bash iRedMail.sh
+   14  reboot
+   15  cd /opt/www/
+   16  ll
+   17  ssh abakari@10.1.80.18
+   18  scp -P 11022 -rp abakari@196.192.79.231:/home/abakari/*.bz2 /tmp/
+   19  ll
+   20  mv /tmp/*.bz2 .
+   21  ll
+   22  tar -xjf iRedAdmin-Pro-LDAP-5.6.tar.bz2 
+   23  ll
+   24  cd iRedAdmin-Pro-LDAP-5.6/
+   25  cd tools/
+   26  ll
+   27  bash upgrade_iredadmin.sh 
+   28  cd ..
+   29  ll
+   30  cd iredadmin/
+   31  ll
+   32  cp -ra settings.py settings.py_org
+   33  ll
+   34  mv settings.py_org settings.py_bk2026
+   35  ll
+   36  #scp -P 11022 -rp abakari@196.192.79.231:/tmp/ireadmin/* 
+   37  pwd
+   38  scp -P 11022 -rp abakari@196.192.79.231:/tmp/ireadmin/* 
+   39  scp -P 11022 -rp abakari@196.192.79.231:/tmp/ireadmin/* .
+   40  scp -P 11022 -rp abakari@196.192.79.231:/tmp/iredadmin/* .
+   41  ll
+   42  cat settings.py
+   43  ll
+   44  grep -wrn 'gov' .
+   45  grep -rl 'dc=gov' ./ | xargs sed -i 's/dc=gov/dc=tpf/g'
+   46  grep -wrn 'gov' .
+   47  vi +11 settings.py
+   48  grep -rl '10.1.2.100' ./ | xargs sed -i 's/10.1.2.100/192.168.44.200/g'
+   49  vi settings.py
+   50  cd /etc/nginx/
+   51  ll
+   52  cd templates/
+   53  ll
+   54  vi iredadmin.tmpl 
+   55  mkdir -p /etc/ssl/certificates
+   56  cd /etc/ssl/certificates/
+   57  ll
+   58  vi gms-admin_certificate.crt
+   59  vi gms-admin_private_key.key
+   60  nginx -t
+   61  systemctl restart nginx iredadmin uwsgi
+   62  cd /opt/www/iredadmin/
+   63  l
+   64  ll
+   65  cat settings.py_bk2026 
+   66  vi settings.py
+   67  systemctl restart nginx iredadmin uwsgi
+   68  exit
+   69  hostname
+   70  cat /etc/hosts 
+   71  hostnamectl set-hostname tpf-box-admin.tpf.go.tz
+   72  su
+   73  nginx -t
+   74  systemctl stop iredadmin
+   75  systemctl start iredadmin
+   76  cd /opt/www/iredadmin/
+   77  ll
+   78  less settings.py
+   79  find / -type f -iname logo.png
+   80  cd static/
+   81  ls -l
+   82  mv logo.png logo.png_org
+   83  systemctl restart iredadmin nginx
+   84  ll
+   85  scp -rp root@192.168.44.99:/var/www/htdocs/docker/data/images/*.png .
+   86  systemctl restart iredadmin nginx uwsgi
+   87  ls -ltrh
+   88  chown -R iredadmin:iredadmin tanzania-police-logo.png 
+   89  cd ..
+   90  ll
+   91  vi settings.py
+   92  systemctl restart iredadmin nginx uwsgi
+   93  exit
+   94  cd /opt/www/iredadmin/
+   95  ll
+   96  cd static/
+   97  ll
+   98  pwd
+   99  ip a
+  100  scp -rp root@192.168.44.99:/var/www/htdocs/docker/data/images/*.png .
+  101  sudo su
+  102  clear
+  103  cd /var/www/
+  104  ls
+  105  cd html/
+  106  ls
+  107  cd ..
+  108  cd cgi-bin/
+  109  ;s
+  110  ls
+  111  ll
+  112  clear
+  113  su
+  114  sudo tail -f /var/log/nginx/error.log
+  115  ps aux | grep uwsgi
+  116  cat /etc/uwsgi.ini
+  117  ls -l /etc/uwsgi.d/
+  118  uptime
+  119  systemctl restart iredadmin nginx uwsgi
+  120  systemctl status iredadmin nginx uwsgi
+  121  nginx -t
+  122  systemctl restart iredadmin nginx uwsgi
+  123  openssl x509 -in /etc/ssl/certificates/gms-admin_certificate.crt -noout -dates
+  124  cd /var/www/
+  125  ls
+  126  locate ssl
+  127  cd /etc/ssl/
+  128  ls
+  129  cd certificates/
+  130  ls
+  131  ll
+  132  ls -l
+  133  ll
+  134  vi gms-admin_private_key.key 
+  135  vi gms-admin_certificate.crt 
+  136  ll
+  137  pwd
+  138  locate mail.logs
+  139  dfn install locate
+  140  dnf install locate
+  141  clear
+  142  ping 192.168.44.77
+  143  ping 192.168.44.79
+  144  ping 192.168.44.76
+  145  clear
+  146  docker ps
+  147  cd /var/www/
+  148  ls
+  149  cd html/
+  150  ls
+  151  docker ps
+  152  cd /
+  153  ls
+  154  cd root/
+  155  ls
+  156  cd iRedMail-1.7.4/
+  157  ls
+  158  clear
+  159  cd /var/
+  160  ls
+  161  cd www/
+  162  ls
+  163  cd html/
+  164  ls
+  165  cd ww
+  166  cd /opt/www/iredadmin/
+  167  ls
+  168  cd web/
+  169  ls
+  170  cd ..
+  171  ls
+  172  cd static/
+  173  ls
+  174  mv favicon.ico favicon_old.icon
+  175  ls
+  176  systemctl status nginx 
+  177  systemctl restart nginx 
+  178  history 
+  179  systemctl restart iredadmin nginx uwsgi
+  180  pwd
+  181  ls
+  182  rm favicon_old.icon 
+  183  systemctl restart iredadmin nginx uwsgi
+  184  clear
+  185  cd ..
+  186  cd /
+  187  clear
+  188  cd /opt/www/iredadmin/
+  189  ls
+  190  cd static/
+  191  ls
+  192  find /opt/www/iredadmin/ -name "favicon.ico"
+  193  cd ..
+  194  find /opt/www/iredadmin/ -name "favicon.ico"
+  195  cd /opt/www/iredadmin/
+  196  ls
+  197  grep -Ri "favicon" .
+  198  vi /opt/www/iredadmin/settings.py
+  199  clear
+  200  vi /opt/www/iredadmin/settings.py
+  201  ls
+  202  cd static/
+  203  la
+  204  ls
+  205  pwd
+  206  ls
+  207  mv favicon.ico myfavicon.ico
+  208  cll
+  209  ll
+  210  chown -R iredadmin:iredadmin myfavicon.ico 
+  211  chmod -R 755 myfavicon.ico 
+  212  ls
+  213  vi /opt/www/iredadmin/settings.py
+  214  nginx -t
+  215  systemctl restart iredadmin nginx uwsgi
+  216  ls
+  217  mv myfavicon.ico Tpf_favicon.ico
+  218  ll
+  219  nginx -t
+  220  ls
+  221  cd ..
+  222  ls
+  223  vi settings.py
+  224  systemctl restart iredadmin nginx uwsgi
+  225  vi settings.py
+
+======================== TROUBLESHOOTING ==========================
+
+======= IMAGES & ICON ============================================
+BRAND LOGO
+BRAND FAVICON
+
+FAVICON
+PATH -- /opt/www/iredadmin/staticTpf_favicon.ico
+CONFIG FILE PATH(hardcoded) --/opt/www/iredadmin/setting.py
+
+LOGO
+PATH -- /opt/www/iredadmin/static/tanzania-police-logo.png
+CONFIG FILE PATH --/opt/www/iredadmin/setting.py
+
+===============
+

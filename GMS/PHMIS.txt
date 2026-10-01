@@ -1,0 +1,1887 @@
+DOCKER COMPOSE YAML PHMIS
+
+#version: '3.7'
+services:
+
+# gothomis-redis-service
+  gothomis-redis-service:
+    image: "redis:7.2-alpine"
+    restart: unless-stopped
+    container_name: "gothomis-redis-service"
+    hostname: gothomis-redis-service
+    command: redis-server --save 20 1 --loglevel warning --bind 0.0.0.0 --requirepass ${GOTHOMIS_REDIS_PASSWORD}
+    environment:
+      - "TZ=Africa/Dar_es_Salaam"
+    ports:
+      - "${GOTHOMIS_REDIS_PORT}:6379"
+    networks:
+        - gothomis-net
+    volumes:
+      - ./db-data/gothomis-redis-service:/data
+
+ #################################################################################
+ ################################################################################
+ ########## gothomis-report-service-postgres
+#################################################################################
+#################################################################################
+
+
+      # gothomis-report-service-postgres
+  gothomis-report-service-postgres:
+    #image: "postgres:17"
+    #image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod    
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-report-service-postgres"
+    #shm_size: '256m'
+    shm_size: '4gb'
+    environment:
+      - POSTGRES_USER=${REPORT_DB_USER}
+      - POSTGRES_PASSWORD=${REPORT_DB_PASS}
+      - POSTGRES_DB=${REPORT_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${REPORT_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-report-service-postgres:/var/lib/postgresql/data
+      #- ./backup/gothomis_report_db_dump.sql:/docker-entrypoint-initdb.d/gothomis_report_db_dump.sql 
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+
+
+
+  # gothomis-report-service   
+  gothomis-report-service:
+    image: gothomis-report-service-image
+    container_name: gothomis-report-service-container
+    build:
+      context: ./services/gothomis-report-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      REPORT_DB_URL: jdbc:postgresql://${REPORT_DB_HOST}:${REPORT_DB_PORT}/${REPORT_DB}
+      REPORT_DB_USER: ${REPORT_DB_USER}
+      REPORT_DB_PASSWORD: ${REPORT_DB_PASS}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      REPORT_PORT: ${REPORT_PORT}
+
+    ports:
+      - "${REPORT_PORT}:${REPORT_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-discovery-service
+      - gothomis-report-service-postgres
+      - gothomis-rabbitmq
+    links:
+      - gothomis-report-service-postgres
+      - gothomis-rabbitmq
+      - gothomis-discovery-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-report-service/tmp:/tmp/
+      - ./services-data/gothomis-report-service/storage/images:/storage/images
+      - ./services-data/gothomis-report-service/storage:/storage/reports
+
+
+
+ #################################################################################
+  #################################################################################
+  ########## Maria Db
+  #################################################################################
+  #################################################################################
+
+  gothomis-mariadb:
+    #image: docker.io/bitnami/mariadb:10.6
+    #image: docker.io/bitnami/mariadb:10.6.16
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-mariadb:1.0.0V-prod
+    container_name: gothomis-mariadb 
+    volumes:
+      - './services-data/mariadb_data:/storage/bitnami/mariadb'
+    restart:
+      always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    environment:
+      - MARIADB_USER=jasperadmin
+      - MARIADB_PASSWORD=jasper@123
+      - MARIADB_ROOT_PASSWORD=jasper@123
+      - MARIADB_DATABASE=jasperreports_db
+
+ #################################################################################
+  #################################################################################
+  ########## Jasper Report
+  #################################################################################
+  #################################################################################
+
+  gothomis-jasperreports:
+    image: docker.io/bitnami/jasperreports:8
+    container_name: gothomis-jasperreports
+    ports:
+      #- '8080:8080'
+      - '8090:8090'
+    volumes:
+      - './services-data/jasperreports_data:/storage/bitnami/jasperreports'
+    depends_on:
+      - gothomis-mariadb
+    restart:
+      always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    environment:
+      - JASPERREPORTS_USERNAME=jasperadmin
+      - JASPERREPORTS_PASSWORD=jasper@123
+      - JASPERREPORTS_DATABASE_HOST=gothomis-mariadb
+      - JASPERREPORTS_DATABASE_PORT_NUMBER=3306
+      - JASPERREPORTS_DATABASE_USER=jasperadmin
+      - JASPERREPORTS_DATABASE_PASSWORD=jasper@123
+      - JASPERREPORTS_DATABASE_NAME=jasperreports_db
+
+
+  #################################################################################
+  #################################################################################
+  ########## gothomis-rabbitmq
+  #################################################################################
+  #################################################################################
+
+
+  gothomis-rabbitmq:
+    container_name: gothomis-rabbitmq
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    image: 'rabbitmq:3.9.4-management'
+    #image: registry.tamisemi.go.tz/gothomis-production/gothomis-rabbitmq:2.0.0V-prod
+    environment:
+      - RABBITMQ_DEFAULT_USER=rabbitmq_admin_user
+      - RABBITMQ_DEFAULT_PASS=11d1754c020cd3972e79d2a8bcd66799cc7f88d2497a2089098427c69b46c4b2
+    #  - RABBITMQ_DEFAULT_VHOST=/
+    ports:
+      - "4369:4369"
+      - "5671:5671"
+      - "5672:5672"
+      - "25672:25672"
+      - "15671:15671"
+      - "15672:15672"
+    networks:
+      - gothomis-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  #################################################################################
+  #################################################################################
+  ########## gothomis-gateway-service  
+  #################################################################################
+  #################################################################################
+
+
+  # gothomis-gateway-service   
+  gothomis-gateway-service:
+    image: gothomis-gateway-service-image
+    container_name: gothomis-gateway-service-container
+    build:
+      context: ./services/gothomis-gateway-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+    ports:
+      - "${GATEWAY_PORT}:${GATEWAY_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-discovery-service
+      - gothomis-uaa-service
+    links:
+      - gothomis-discovery-service
+      - gothomis-uaa-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-gateway-service/tmp:/tmp/
+      - ./services-data/gothomis-gateway-service/storage:/storage/
+
+  #################################################################################
+  #################################################################################
+  ########## gothomis-discovery-service
+  #################################################################################
+  #################################################################################
+
+
+  # gothomis-discovery-service
+  gothomis-discovery-service:
+    image: gothomis-discovery-service-image
+    container_name: gothomis-discovery-service-container
+    build:
+      context: ./services/gothomis-discovery-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+    ports:
+      - "${DISCOVERY_PORT}:${DISCOVERY_PORT}"
+    networks:
+      - gothomis-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-discovery-service/tmp:/tmp/
+      - ./services-data/gothomis-discovery-service/storage:/storage/
+
+
+  #################################################################################
+  #################################################################################
+  ########## gothomis-cdc-service
+  #################################################################################
+  #################################################################################
+
+
+  # gothomis-cdc-service
+  gothomis-cdc-service:
+    image: gothomis-cdc-service-image
+    container_name: gothomis-cdc-service-container
+    build:
+      context: ./services/gothomis-cdc-service
+      dockerfile: Dockerfile
+    environment:
+      #JAVA_OPTS: "-Xms16g -Xmx32g -XX:+UseContainerSupport -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp"
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      CDC_PORT: ${CDC_PORT}
+      GOTHOMIS_CDC_OFFSET_STORAGE: /temp
+      #GOTHOMIS_RABBIT_CONFIG_INTERNAL_HOSTNAME: ${RABBIT_HOST}
+      #GOTHOMIS_RABBIT_CONFIG_INTERNAL_PORT: ${RABBIT_PORT}
+      #GOTHOMIS_RABBIT_CONFIG_INTERNAL_USERNAME: ${RABBIT_USERNAME}
+      #GOTHOMIS_RABBIT_CONFIG_INTERNAL_PASSWORD: ${RABBIT_PASSWORD}
+      #RABBITMQ_PORT: ${RABBIT_PORT}
+      #RABBITMQ_HOST: ${RABBIT_HOST}
+      #RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      #RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      # -- INSURANCE
+      INSURANCE_DB_HOST: ${INSURANCE_DB_HOST}
+      INSURANCE_DB_PORT: ${INSURANCE_DB_PORT} 
+      INSURANCE_DB_USER: ${INSURANCE_DB_USER} 
+      INSURANCE_DB_PASS: ${INSURANCE_DB_PASS} 
+      INSURANCE_DB: ${INSURANCE_DB}
+      # -- CLIENT
+      CLIENT_DB_HOST: ${CLIENT_DB_HOST}
+      CLIENT_DB_PORT: ${CLIENT_DB_PORT}
+      CLIENT_DB_USER: ${CLIENT_DB_USER}
+      CLIENT_DB_PASS: ${CLIENT_DB_PASS}
+      CLIENT_DB: ${CLIENT_DB}
+       # -- UAA
+      UAA_DB_HOST: ${UAA_DB_HOST}
+      UAA_DB_PORT: ${UAA_DB_PORT}
+      UAA_DB_USER: ${UAA_DB_USER}
+      UAA_DB_PASS: ${UAA_DB_PASS}
+      UAA_DB: ${UAA_DB}
+       # -- RCH
+      RCH_DB_HOST: ${RCH_DB_HOST}
+      RCH_DB_PORT: ${RCH_DB_PORT}
+      RCH_DB_USER: ${RCH_DB_USER}
+      RCH_DB_PASS: ${RCH_DB_PASS}
+      RCH_DB: ${RCH_DB}
+       # -- PHARMACY
+      PHARMACY_DB_HOST: ${PHARMACY_DB_HOST}
+      PHARMACY_DB_PORT: ${PHARMACY_DB_PORT}
+      PHARMACY_DB_USER: ${PHARMACY_DB_USER}
+      PHARMACY_DB_PASS: ${PHARMACY_DB_PASS}
+      PHARMACY_DB: ${PHARMACY_DB}
+       # -- CONSULTATION
+      CONSULTATION_DB_HOST: ${CONSULTATION_DB_HOST}
+      CONSULTATION_DB_PORT: ${CONSULTATION_DB_PORT}
+      CONSULTATION_DB_USER: ${CONSULTATION_DB_USER}
+      CONSULTATION_DB_PASS: ${CONSULTATION_DB_PASS}
+      CONSULTATION_DB: ${CONSULTATION_DB}
+       # -- ITEM
+      ITEM_DB_HOST: ${ITEM_DB_HOST}
+      ITEM_DB_PORT: ${ITEM_DB_PORT}
+      ITEM_DB_USER: ${ITEM_DB_USER}
+      ITEM_DB_PASS: ${ITEM_DB_PASS}
+      ITEM_DB: ${ITEM_DB}
+       # -- BILLING
+      BILLING_DB_HOST: ${BILLING_DB_HOST}
+      BILLING_DB_PORT: ${BILLING_DB_PORT}
+      BILLING_DB_USER: ${BILLING_DB_USER}
+      BILLING_DB_PASS: ${BILLING_DB_PASS}
+      BILLING_DB: ${BILLING_DB}
+       # -- INVESTIGATION
+      INVESTIGATION_DB_HOST: ${INVESTIGATION_DB_HOST}
+      INVESTIGATION_DB_PORT: ${INVESTIGATION_DB_PORT}
+      INVESTIGATION_DB_USER: ${INVESTIGATION_DB_USER}
+      INVESTIGATION_DB_PASS: ${INVESTIGATION_DB_PASS}
+      INVESTIGATION_DB: ${INVESTIGATION_DB}
+       # -- DIABETIC
+      DIABETIC_DB_HOST: ${DIABETIC_DB_HOST}
+      DIABETIC_DB_PORT: ${DIABETIC_DB_PORT}
+      DIABETIC_DB_USER: ${DIABETIC_DB_USER}
+      DIABETIC_DB_PASS: ${DIABETIC_DB_PASS}
+      DIABETIC_DB: ${DIABETIC_DB}
+       # -- JAZIA
+      JAZIA_DB_HOST: ${JAZIA_DB_HOST}
+      JAZIA_DB_PORT: ${JAZIA_DB_PORT}
+      JAZIA_DB_USER: ${JAZIA_DB_USER}
+      JAZIA_DB_PASS: ${JAZIA_DB_PASS}
+      JAZIA_DB: ${JAZIA_DB}
+       # -- REMINDER
+      REMINDER_DB_HOST: ${REMINDER_DB_HOST}
+      REMINDER_DB_PORT: ${REMINDER_DB_PORT}
+      REMINDER_DB_USER: ${REMINDER_DB_USER}
+      REMINDER_DB_PASS: ${REMINDER_DB_PASS}
+      REMINDER_DB: ${REMINDER_DB}
+       # -- REPORT
+      REPORT_DB_HOST: ${REPORT_DB_HOST}
+      REPORT_DB_PORT: ${REPORT_DB_PORT}
+      REPORT_DB_USER: ${REPORT_DB_USER}
+      REPORT_DB_PASS: ${REPORT_DB_PASS}
+      REPORT_DB: ${REPORT_DB}
+    ports:
+      - "${CDC_PORT}:${CDC_PORT}"
+    networks:
+      - gothomis-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+
+    depends_on:
+      - gothomis-rabbitmq
+    links:
+      - gothomis-rabbitmq
+    volumes:
+      - ./services-data/gothomis-cdc-service/tmp:/tmp/
+      - ./services-data/gothomis-cdc-service/storage:/storage/
+      - ./services-data/gothomis-cdc-service/storage/offset:/storage/offset/
+      - ./services-data/gothomis-cdc-service/offset-storage:/usr/gothomis-cdc-offset/
+
+
+  #################################################################################
+  #################################################################################
+  ########## gothomis-uaa-service  
+  #################################################################################
+  #################################################################################     
+
+  # gothomis-uaa-service-postgres
+  gothomis-uaa-service-postgres:
+    #image: "postgres:17"
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-uaa-service-postgres"
+    #shm_size: '256m'
+    shm_size: '8gb'
+    environment:
+      - POSTGRES_USER=${UAA_DB_USER}
+      - POSTGRES_PASSWORD=${UAA_DB_PASS}
+      - POSTGRES_DB=${UAA_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${UAA_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-uaa-service-postgres:/var/lib/postgresql/data
+      - /home/phmis_root/databases/gothomis_uaa.sql:/docker-entrypoint-initdb.d/gothomis_uaa.sql
+      #- ./sql/01-area-level.sql:/docker-entrypoint-initdb.d/01-area-level.sql
+      #- ./sql/02-area-type.sql:/docker-entrypoint-initdb.d/02-area-type.sql
+      #- ./sql/03-administrative-area.sql:/docker-entrypoint-initdb.d/03-administrative-area.sql
+
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+
+  # gothomis-uaa-service   
+  gothomis-uaa-service:
+    image: gothomis-uaa-service-image
+    container_name: gothomis-uaa-service-container
+    build:
+      context: ./services/gothomis-uaa-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      UAA_DB_URL: jdbc:postgresql://${UAA_DB_HOST}:${UAA_DB_PORT}/${UAA_DB}
+      UAA_DB_USER: ${UAA_DB_USER}
+      UAA_DB_PASSWORD: ${UAA_DB_PASS}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      # RABBITMQ_PORT: ${PLANREP_RABBIT_PORT}
+      # RABBITMQ_HOST: ${PLANREP_RABBIT_HOST}
+      # RABBITMQ_USERNAME: ${PLANREP_RABBIT_USERNAME}
+      # RABBITMQ_PASSWORD: ${PLANREP_RABBIT_PASSWORD}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      UAA_PORT: ${UAA_PORT}
+      UAA_SERVICE_WEB_CLIENT_ID: ${UAA_SERVICE_WEB_CLIENT_ID}
+      UAA_SERVICE_WEB_CLIENT_SECRET: ${UAA_SERVICE_WEB_CLIENT_SECRET}
+      #CATALINA_OPTS: -Xmx12g -Xms12g -XX:MaxPermSize=1024m
+      #JVM_OPTS: -Xmx12g -Xms12g -XX:MaxPermSize=1024m
+    ports:
+      - "${UAA_PORT}:${UAA_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-discovery-service
+      - gothomis-uaa-service-postgres
+    #   - gothomis-rabbitmq
+    links:
+      - gothomis-uaa-service-postgres
+      # - gothomis-rabbitmq
+      - gothomis-discovery-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-uaa-service/tmp:/tmp/
+      - ./services-data/gothomis-uaa-service/storage/images:/storage/images
+      - ./services-data/gothomis-uaa-service/storage:/storage/gothomis_report
+      - ./services-data/gothomis-uaa-service/storage:/storage/logs
+      - ./services-data/gothomis-uaa-service/storage:/storage/reports
+
+  #################################################################################
+  #################################################################################
+  ########## gothomis-item-service
+  #################################################################################
+  #################################################################################
+
+  # gothomis-item-service   
+  gothomis-item-service:
+    image: gothomis-item-service-image
+    container_name: gothomis-item-service-container
+    build:
+      context: ./services/gothomis-item-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      ITEM_DB_URL: jdbc:postgresql://${ITEM_DB_HOST}:${ITEM_DB_PORT}/${ITEM_DB}
+      ITEM_DB_USER: ${ITEM_DB_USER}
+      ITEM_DB_PASSWORD: ${ITEM_DB_PASS}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      ITEM_PORT: ${ITEM_PORT}
+       # redis
+      GOTHOMIS_REDIS_PASSWORD: ${GOTHOMIS_REDIS_PASSWORD}
+      GOTHOMIS_REDIS_HOST: ${GOTHOMIS_REDIS_HOST}
+      GOTHOMIS_REDIS_PORT: ${GOTHOMIS_REDIS_PORT}
+
+    ports:
+      - "${ITEM_PORT}:${ITEM_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-discovery-service
+      - gothomis-item-service-postgres
+      - gothomis-rabbitmq
+    links:
+      - gothomis-item-service-postgres
+      - gothomis-rabbitmq
+      - gothomis-discovery-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-item-service/tmp:/tmp/
+      - ./services-data/gothomis-item-service/storage/images:/storage/images
+      - ./services-data/gothomis-item-service/storage:/storage/reports
+
+  #################################################################################
+  #################################################################################
+  ########## gothomis-item-service-postgres
+  #################################################################################
+  #################################################################################
+
+  # gothomis-item-service-postgres
+  gothomis-item-service-postgres:
+    #image: "postgres:17"
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-item-service-postgres"
+    #shm_size: '256m'
+    shm_size: '4gb'
+    environment:
+      - POSTGRES_USER=${ITEM_DB_USER}
+      - POSTGRES_PASSWORD=${ITEM_DB_PASS}
+      - POSTGRES_DB=${ITEM_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${ITEM_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-item-service-postgres:/var/lib/postgresql/data
+      - /home/phmis_root/databases/gothomis_item.sql:/docker-entrypoint-initdb.d/gothomis_item.sql
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical" 
+
+
+  #################################################################################
+  #################################################################################
+  ########## gothomis-dhis2-service
+  #################################################################################
+  #################################################################################
+
+  # gothomis-dhis2-service   
+  gothomis-dhis2-service:
+    image: gothomis-dhis2-service-image
+    container_name: gothomis-dhis2-service-container
+    build:
+      context: ./services/gothomis-dhis2-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      DHIS2_DB_URL: jdbc:postgresql://${DHIS2_DB_HOST}:${DHIS2_DB_PORT}/${DHIS2_DB}
+      DHIS2_DB_USER: ${DHIS2_DB_USER}
+      DHIS2_DB_PASSWORD: ${DHIS2_DB_PASS}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      DHIS2_PORT: ${DHIS2_PORT}
+
+    ports:
+      - "${DHIS2_PORT}:${DHIS2_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-discovery-service
+      - gothomis-dhis2-service-postgres
+      - gothomis-rabbitmq
+    links:
+      - gothomis-dhis2-service-postgres
+      - gothomis-rabbitmq
+      - gothomis-discovery-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-dhis2-service/tmp:/tmp/
+      - ./services-data/gothomis-dhis2-service/storage/images:/storage/images
+      - ./services-data/gothomis-dhis2-service/storage:/storage/reports
+
+
+  #################################################################################
+  #################################################################################
+  ########## gothomis-dhis2-service-postgres
+  #################################################################################
+  #################################################################################
+
+  # gothomis-dhis2-service-postgres
+  gothomis-dhis2-service-postgres:
+    #image: "postgres:17"
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-dhis2-service-postgres"
+    #shm_size: '256m'
+    shm_size: '4gb'
+    environment:
+      - POSTGRES_USER=${DHIS2_DB_USER}
+      - POSTGRES_PASSWORD=${DHIS2_DB_PASS}
+      - POSTGRES_DB=${DHIS2_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${DHIS2_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-dhis2-service-postgres:/var/lib/postgresql/data
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical" 
+
+
+  # gothomis-client-service   
+  gothomis-client-service:
+    image: gothomis-client-service-image
+    #image: gothomis-client-service-image:backup-20260124102104
+    container_name: gothomis-client-service-container
+    build:
+      context: ./services/gothomis-client-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      CLIENT_DB_URL: jdbc:postgresql://${CLIENT_DB_HOST}:${CLIENT_DB_PORT}/${CLIENT_DB}
+      CLIENT_DB_USER: ${CLIENT_DB_USER}
+      CLIENT_DB_PASSWORD: ${CLIENT_DB_PASS}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      CLIENT_PORT: ${CLIENT_PORT}
+      ## redis
+      #GOTHOMIS_REDIS_PASSWORD: ${GOTHOMIS_REDIS_PASSWORD}
+      #GOTHOMIS_REDIS_HOST: ${GOTHOMIS_REDIS_HOST}
+      #GOTHOMIS_REDIS_PORT: ${GOTHOMIS_REDIS_PORT}
+
+    ports:
+      - "${CLIENT_PORT}:${CLIENT_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-discovery-service
+      - gothomis-client-service-postgres
+      - gothomis-rabbitmq
+    links:
+      - gothomis-client-service-postgres
+      - gothomis-rabbitmq
+      - gothomis-discovery-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-client-service/tmp:/tmp/
+      - ./services-data/gothomis-client-service/storage/images:/storage/images
+      - ./services-data/gothomis-client-service/storage:/storage/reports
+      #################################################################################
+      #################################################################################
+      ########## gothomis-client-service-postgres
+      #################################################################################
+      #################################################################################
+
+      # gothomis-client-service-postgres
+  gothomis-client-service-postgres:
+    #image: "postgres:17"
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-client-service-postgres"
+    #shm_size: '256m'
+    shm_size: '8gb'
+    environment:
+      - POSTGRES_USER=${CLIENT_DB_USER}
+      - POSTGRES_PASSWORD=${CLIENT_DB_PASS}
+      - POSTGRES_DB=${CLIENT_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${CLIENT_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-client-service-postgres:/var/lib/postgresql/data
+      - /home/phmis_root/databases/gothomis_client.sql:/docker-entrypoint-initdb.d/gothomis_client.sql
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+
+
+      #################################################################################
+  #################################################################################
+  ########## gothomis-pharmacy-service
+  #################################################################################
+  #################################################################################
+
+  # gothomis-pharmacy-service   
+  gothomis-pharmacy-service:
+    image: gothomis-pharmacy-service-image
+    #image: gothomis-pharmacy-service-image:backup-20260123130308
+    container_name: gothomis-pharmacy-service-container
+    build:
+      context: ./services/gothomis-pharmacy-service
+      dockerfile: Dockerfile
+      #dockerfile: Dockerfile-optimized
+    environment:
+      #JAVA_OPTS: "-Xms16g -Xmx32g -XX:+UseContainerSupport -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp"
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      PHARMACY_DB_URL: jdbc:postgresql://${PHARMACY_DB_HOST}:${PHARMACY_DB_PORT}/${PHARMACY_DB}
+      PHARMACY_DB_USER: ${PHARMACY_DB_USER}
+      PHARMACY_DB_PASSWORD: ${PHARMACY_DB_PASS}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      PHARMACY_PORT: ${PHARMACY_PORT}
+      # redis
+      GOTHOMIS_REDIS_PASSWORD: ${GOTHOMIS_REDIS_PASSWORD}
+      GOTHOMIS_REDIS_HOST: ${GOTHOMIS_REDIS_HOST}
+      GOTHOMIS_REDIS_PORT: ${GOTHOMIS_REDIS_PORT}
+
+    ports:
+      - "${PHARMACY_PORT}:${PHARMACY_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-discovery-service
+      - gothomis-pharmacy-service-postgres
+      - gothomis-rabbitmq
+    links:
+      - gothomis-pharmacy-service-postgres
+      - gothomis-rabbitmq
+      - gothomis-discovery-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-pharmacy-service/tmp:/tmp/
+      - ./services-data/gothomis-pharmacy-service/storage/images:/storage/images
+      - ./services-data/gothomis-pharmacy-service/storage:/storage/reports
+      
+    
+       #################################################################################
+  #################################################################################
+  ########## gothomis-pharmacy-service-postgres
+  #################################################################################
+  #################################################################################
+
+  # gothomis-pharmacy-service-postgres
+  gothomis-pharmacy-service-postgres:
+    #image: "postgres:17"
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-pharmacy-service-postgres"
+    #shm_size: '256m'
+    shm_size: '8gb'
+    environment:
+      - POSTGRES_USER=${PHARMACY_DB_USER}
+      - POSTGRES_PASSWORD=${PHARMACY_DB_PASS}
+      - POSTGRES_DB=${PHARMACY_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${PHARMACY_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-pharmacy-service-postgres:/var/lib/postgresql/data
+      - /home/phmis_root/databases/gothomis_pharmacy.sql:/docker-entrypoint-initdb.d/gothomis_pharmacy.sql
+      #- ./backup/gothomis_pharmacy_db_dump.sql:/docker-entrypoint-initdb.d/gothomis_pharmacy_db_dump.sql
+      #- ./services-logs/gothomis-pharmacy-service-postgres-prod-log:/var/log/postgresql
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+
+
+       #################################################################################
+  #################################################################################
+  ########## gothomis-jazia-service-postgres
+  #################################################################################
+  #################################################################################
+
+  ## gothomis-jazia-service-postgres
+  #gothomis-jazia-service-postgres:
+    #image: "postgres:13"
+    #image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    #restart: unless-stopped
+    #logging:
+      #driver: "json-file"
+      #options:
+        #max-size: "5m"
+        #max-file: "5"
+    #container_name: "gothomis-jazia-service-postgres"
+    #shm_size: '256m'
+    #shm_size: '4gb'
+    #environment:
+      #- POSTGRES_USER=${JAZIA_DB_USER}
+      #- POSTGRES_PASSWORD=${JAZIA_DB_PASS}
+      #- POSTGRES_DB=${JAZIA_DB}
+      #- PGDATA=/var/lib/postgresql/data
+      #- TZ=GMT+3
+      #- PGTZ=GMT+3
+    #ports:
+      #- "${JAZIA_DB_PORT}:5432"
+    #networks:
+      #- gothomis-net
+    #volumes:
+      #- ./db-data/gothomis-jazia-service-postgres:/var/lib/postgresql/data
+    #command:
+      #- "postgres"
+      #- "-c"
+      #- "wal_level=logical"
+
+        #################################################################################
+  ########## gothomis-jazia-service
+  #################################################################################
+  #################################################################################
+
+  ## gothomis-jazia-service   
+  #gothomis-jazia-service:
+    #image: gothomis-jazia-service-image
+    #container_name: gothomis-jazia-service-container
+    #build:
+      #context: ./services/gothomis-jazia-service
+      #dockerfile: Dockerfile
+    #environment:
+      #DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      ##SPRING_PROFILES_ACTIVE: test
+      #SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      #JAZIA_DB_URL: jdbc:postgresql://${JAZIA_DB_HOST}:${JAZIA_DB_PORT}/${JAZIA_DB}
+      #JAZIA_DB_USER: ${JAZIA_DB_USER}
+      #JAZIA_DB_PASSWORD: ${JAZIA_DB_PASS}
+      #RABBITMQ_PORT: ${RABBIT_PORT}
+      #RABBITMQ_HOST: ${RABBIT_HOST}
+      #RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      #RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      #GATEWAY_PORT: ${GATEWAY_PORT}
+      #DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      #DISCOVERY_PORT: ${DISCOVERY_PORT}
+      #AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      #JAZIA_PORT: ${JAZIA_PORT}
+
+    #ports:
+      #- "${JAZIA_PORT}:${JAZIA_PORT}"
+    #networks:
+      #- gothomis-net
+    #depends_on:
+      #- gothomis-discovery-service
+      #- gothomis-jazia-service-postgres
+      #- gothomis-rabbitmq
+    #links:
+      #- gothomis-jazia-service-postgres
+      #- gothomis-rabbitmq
+      #- gothomis-discovery-service
+    #restart: unless-stopped
+    #logging:
+      #driver: "json-file"
+      #options:
+        #max-size: "5m"
+        #max-file: "5"
+    #volumes:
+      #- ./services-data/gothomis-jazia-service/tmp:/tmp/
+      #- ./services-data/gothomis-jazia-service/storage/images:/storage/images
+      #- ./services-data/gothomis-jazia-service/storage:/storage/reports
+
+
+       #################################################################################
+  #################################################################################
+  ########## gothomis-reminder-service-postgres
+  #################################################################################
+  #################################################################################
+
+  # gothomis-reminder-service-postgres
+  gothomis-reminder-service-postgres:
+    #image: "postgres:17"
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-reminder-service-postgres"
+    #shm_size: '256m'
+    shm_size: '4gb'
+    environment:
+      - POSTGRES_USER=${REMINDER_DB_USER}
+      - POSTGRES_PASSWORD=${REMINDER_DB_PASS}
+      - POSTGRES_DB=${REMINDER_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${REMINDER_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-reminder-service-postgres:/var/lib/postgresql/data
+      - /home/phmis_root/databases/central_reminder_db.sql:/docker-entrypoint-initdb.d/central_reminder_db.sql
+      #- ./all-backups/upgrade-03-02-2026/gothomis_sms_reminder_db_dump.sql:/docker-entrypoint-initdb.d/gothomis_sms_reminder_db_dump.sql 
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+
+        #################################################################################
+  ########## gothomis-reminder-service
+  #################################################################################
+  #################################################################################
+
+  # gothomis-reminder-service   
+  gothomis-reminder-service:
+    image: gothomis-reminder-service-image
+    container_name: gothomis-reminder-service-container
+    build:
+      context: ./services/gothomis-reminder-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      REMINDER_DB_URL: jdbc:postgresql://${REMINDER_DB_HOST}:${REMINDER_DB_PORT}/${REMINDER_DB}
+      REMINDER_DB_USER: ${REMINDER_DB_USER}
+      REMINDER_DB_PASSWORD: ${REMINDER_DB_PASS}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      REMINDER_PORT: ${REMINDER_PORT}
+
+    ports:
+      - "${REMINDER_PORT}:${REMINDER_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-discovery-service
+      - gothomis-reminder-service-postgres
+      - gothomis-rabbitmq
+    links:
+      - gothomis-reminder-service-postgres
+      - gothomis-rabbitmq
+      - gothomis-discovery-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-reminder-service/tmp:/tmp/
+      - ./services-data/gothomis-reminder-service/storage/images:/storage/images
+      - ./services-data/gothomis-reminder-service/storage:/storage/reports
+
+
+       #################################################################################
+  #################################################################################
+  ########## gothomis-billing-service-postgres
+  #################################################################################
+  #################################################################################
+
+  # gothomis-billing-service-postgres
+  gothomis-billing-service-postgres:
+    #image: "postgres:17"
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-billing-service-postgres"
+    #shm_size: '256m'
+    shm_size: '4gb'
+    environment:
+      - POSTGRES_USER=${BILLING_DB_USER}
+      - POSTGRES_PASSWORD=${BILLING_DB_PASS}
+      - POSTGRES_DB=${BILLING_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${BILLING_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-billing-service-postgres:/var/lib/postgresql/data
+      - /home/phmis_root/databases/gothomis_billing.sql:/docker-entrypoint-initdb.d/gothomis_billing.sql
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"    
+
+  #################################################################################
+  ########## gothomis-billing-service
+  #################################################################################
+  #################################################################################
+
+  # gothomis-billing-service   
+  gothomis-billing-service:
+    image: gothomis-billing-service-image
+    container_name: gothomis-billing-service-container
+    build:
+      context: ./services/gothomis-billing-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      BILLING_DB_URL: jdbc:postgresql://${BILLING_DB_HOST}:${BILLING_DB_PORT}/${BILLING_DB}
+      BILLING_DB_USER: ${BILLING_DB_USER}
+      BILLING_DB_PASSWORD: ${BILLING_DB_PASS}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      BILLING_PORT: ${BILLING_PORT}
+
+    ports:
+      - "${BILLING_PORT}:${BILLING_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      #- gothomis-discovery-service
+      - gothomis-billing-service-postgres
+      - gothomis-rabbitmq
+    links:
+      - gothomis-billing-service-postgres
+      - gothomis-rabbitmq
+      #- gothomis-discovery-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-billing-service/tmp:/tmp/
+      - ./services-data/gothomis-billing-service/storage/images:/storage/images
+      - ./services-data/gothomis-billing-service/storage/reports:/storage/reports
+      #- ./storage/certificates/GePGNewPublicKey.pfx:/storage/certificates/GePGNewPublicKey.pfx
+      #- ./storage/certificates/GothomisNewPublicKey.pfx:/storage/certificates/GothomisNewPublicKey.pfx
+      - ./storage/certificates:/storage/certificates
+
+
+       #################################################################################
+  #################################################################################
+  ########## gothomis-investigation-service-postgres
+  #################################################################################
+  #################################################################################
+
+  # gothomis-investigation-service-postgres
+  gothomis-investigation-service-postgres:
+    #image: "postgres:13"
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-investigation-service-postgres"
+    #shm_size: '256m'
+    shm_size: '8gb'
+    environment:
+      - POSTGRES_USER=${INVESTIGATION_DB_USER}
+      - POSTGRES_PASSWORD=${INVESTIGATION_DB_PASS}
+      - POSTGRES_DB=${INVESTIGATION_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${INVESTIGATION_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-investigation-service-postgres:/var/lib/postgresql/data
+      - /home/phmis_root/databases/central_investigation_db.sql:/docker-entrypoint-initdb.d/central_investigation_db.sql
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      
+
+      #################################################################################
+  ########## gothomis-investigation-service
+  #################################################################################
+  #################################################################################
+
+  # gothomis-investigation-service   
+  gothomis-investigation-service:
+    image: gothomis-investigation-service-image
+    container_name: gothomis-investigation-service-container
+    build:
+      context: ./services/gothomis-investigation-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      INVESTIGATION_DB_URL: jdbc:postgresql://${INVESTIGATION_DB_HOST}:${INVESTIGATION_DB_PORT}/${INVESTIGATION_DB}
+      INVESTIGATION_DB_USER: ${INVESTIGATION_DB_USER}
+      INVESTIGATION_DB_PASSWORD: ${INVESTIGATION_DB_PASS}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      INVESTIGATION_PORT: ${INVESTIGATION_PORT}
+
+    ports:
+      - "${INVESTIGATION_PORT}:${INVESTIGATION_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-discovery-service
+      - gothomis-investigation-service-postgres
+      - gothomis-rabbitmq
+    links:
+      - gothomis-investigation-service-postgres
+      - gothomis-rabbitmq
+      - gothomis-discovery-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-investigation-service/tmp:/tmp/
+      - ./services-data/gothomis-investigation-service/storage/images:/storage/images
+      - ./services-data/gothomis-investigation-service/storage:/storage/investigation
+      - ./services-data/gothomis-investigation-service/storage:/storage/reports
+
+
+ #################################################################################
+  #################################################################################
+  ########## gothomis-consultation-service-postgres
+  #################################################################################
+  #################################################################################
+
+  # gothomis-consultation-service-postgres
+  gothomis-consultation-service-postgres:
+    #image: "postgres:13"
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-consultation-service-postgres"
+    #shm_size: '256m'
+    shm_size: '4gb'
+    environment:
+      - POSTGRES_USER=${CONSULTATION_DB_USER}
+      - POSTGRES_PASSWORD=${CONSULTATION_DB_PASS}
+      - POSTGRES_DB=${CONSULTATION_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${CONSULTATION_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-consultation-service-postgres:/var/lib/postgresql/data
+      - /home/phmis_root/databases/central_consultation_db.sql:/docker-entrypoint-initdb.d/central_consultation_db.sql
+      #- ./services-logs/gothomis-consultation-service-postgres-prod-log:/var/log/postgresql
+
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+
+       #################################################################################
+  #################################################################################
+  ########## gothomis-consultation-service
+  #################################################################################
+  #################################################################################
+
+  # gothomis-consultation-service   
+  gothomis-consultation-service:
+    image: gothomis-consultation-service-image
+    container_name: gothomis-consultation-service-container
+    build:
+      context: ./services/gothomis-consultation-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      CONSULTATION_DB_URL: jdbc:postgresql://${CONSULTATION_DB_HOST}:${CONSULTATION_DB_PORT}/${CONSULTATION_DB}
+      CONSULTATION_DB_USER: ${CONSULTATION_DB_USER}
+      CONSULTATION_DB_PASSWORD: ${CONSULTATION_DB_PASS}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      CONSULTATION_PORT: ${CONSULTATION_PORT}
+       # redis
+      #GOTHOMIS_REDIS_PASSWORD: ${GOTHOMIS_REDIS_PASSWORD}
+      #GOTHOMIS_REDIS_HOST: ${GOTHOMIS_REDIS_HOST}
+      #GOTHOMIS_REDIS_PORT: ${GOTHOMIS_REDIS_PORT}
+
+    ports:
+      - "${CONSULTATION_PORT}:${CONSULTATION_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-discovery-service
+      - gothomis-consultation-service-postgres
+      - gothomis-rabbitmq
+    links:
+      - gothomis-consultation-service-postgres
+      - gothomis-rabbitmq
+      - gothomis-discovery-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-consultation-service/tmp:/tmp/
+      - ./services-data/gothomis-consultation-service/storage/images:/storage/images
+      - ./services-data/gothomis-consultation-service/storage:/storage/reports
+      
+
+       #################################################################################
+  #################################################################################
+  ########## gothomis-insurance-service
+  #################################################################################
+  #################################################################################
+
+  # gothomis-insurance-service   
+  gothomis-insurance-service:
+    image: gothomis-insurance-service-image
+    container_name: gothomis-insurance-service-container
+    build:
+      context: ./services/gothomis-insurance-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      INSURANCE_DB_URL: jdbc:postgresql://${INSURANCE_DB_HOST}:${INSURANCE_DB_PORT}/${INSURANCE_DB}
+      INSURANCE_DB_USER: ${INSURANCE_DB_USER}
+      INSURANCE_DB_PASSWORD: ${INSURANCE_DB_PASS}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      INSURANCE_PORT: ${INSURANCE_PORT}
+      # redis
+      GOTHOMIS_REDIS_PASSWORD: ${GOTHOMIS_REDIS_PASSWORD}
+      GOTHOMIS_REDIS_HOST: ${GOTHOMIS_REDIS_HOST}
+      GOTHOMIS_REDIS_PORT: ${GOTHOMIS_REDIS_PORT}
+
+    ports:
+      - "${INSURANCE_PORT}:${INSURANCE_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-discovery-service
+      - gothomis-insurance-service-postgres
+      - gothomis-rabbitmq
+    links:
+      - gothomis-insurance-service-postgres
+      - gothomis-rabbitmq
+      - gothomis-discovery-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-insurance-service/tmp:/tmp/
+      - ./services-data/gothomis-insurance-service/storage/images:/storage/images
+      - ./services-data/gothomis-insurance-service/storage:/storage/reports
+
+
+ #################################################################################
+  #################################################################################
+  ########## gothomis-insurance-service-postgres
+  #################################################################################
+  #################################################################################
+
+  # gothomis-insurance-service-postgres
+  gothomis-insurance-service-postgres:
+    #image: "postgres:17"
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-insurance-service-postgres"
+    #shm_size: '256m'
+    shm_size: '4gb'
+    environment:
+      - POSTGRES_USER=${INSURANCE_DB_USER}
+      - POSTGRES_PASSWORD=${INSURANCE_DB_PASS}
+      - POSTGRES_DB=${INSURANCE_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${INSURANCE_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-insurance-service-postgres:/var/lib/postgresql/data
+      - /home/phmis_root/databases/gothomis_insurance.sql:/docker-entrypoint-initdb.d/gothomis_insurance.sql
+      #- ./all-backups/upgrade-03-02-2026/gothomis_insurance_db_dump.sql:/docker-entrypoint-initdb.d/gothomis_insurance_db_dump.sql
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+
+
+ #################################################################################
+  #################################################################################
+  ########## gothomis-diabetic-service-postgres
+  #################################################################################
+  #################################################################################
+
+  ## gothomis-diabetic-service-postgres
+  gothomis-diabetic-service-postgres:
+    #image: "postgres:17"
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-diabetic-service-postgres"
+    #shm_size: '256m'
+    shm_size: '4gb'
+    environment:
+      - POSTGRES_USER=${DIABETIC_DB_USER}
+      - POSTGRES_PASSWORD=${DIABETIC_DB_PASS}
+      - POSTGRES_DB=${DIABETIC_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${DIABETIC_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-diabetic-service-postgres:/var/lib/postgresql/data
+      #- ./tmp-master/gothomis-diabetic-service-postgres:/tmp
+
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+
+  #################################################################################
+  #################################################################################
+  ########## gothomis-diabetic-service
+  #################################################################################
+  #################################################################################
+
+  ## gothomis-diabetic-service   
+  #gothomis-diabetic-service:
+    #image: gothomis-diabetic-service-image
+    #container_name: gothomis-diabetic-service-container
+    #build:
+      #context: ./services/gothomis-diabetic-service
+      #dockerfile: Dockerfile
+    #environment:
+      #DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      ##SPRING_PROFILES_ACTIVE: test
+      #SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      #DIABETIC_DB_URL: jdbc:postgresql://${DIABETIC_DB_HOST}:${DIABETIC_DB_PORT}/${DIABETIC_DB}
+      #DIABETIC_DB_USER: ${DIABETIC_DB_USER}
+      #DIABETIC_DB_PASSWORD: ${DIABETIC_DB_PASS}
+      #RABBITMQ_PORT: ${RABBIT_PORT}
+      #RABBITMQ_HOST: ${RABBIT_HOST}
+      #RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      #RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      #GATEWAY_PORT: ${GATEWAY_PORT}
+      #DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      #DISCOVERY_PORT: ${DISCOVERY_PORT}
+      #AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      #DIABETIC_PORT: ${DIABETIC_PORT}
+
+    #ports:
+      #- "${DIABETIC_PORT}:${DIABETIC_PORT}"
+    #networks:
+      #- gothomis-net
+    #depends_on:
+      #- gothomis-discovery-service
+      #- gothomis-diabetic-service-postgres
+      #- gothomis-rabbitmq
+    #links:
+      #- gothomis-diabetic-service-postgres
+      #- gothomis-rabbitmq
+      #- gothomis-discovery-service
+    #restart: unless-stopped
+    #logging:
+      #driver: "json-file"
+      #options:
+        #max-size: "5m"
+        #max-file: "5"
+    #volumes:
+      #- ./services-data/gothomis-diabetic-service/tmp:/tmp/
+      #- ./services-data/gothomis-diabetic-service/storage/images:/storage/images
+      #- ./services-data/gothomis-diabetic-service/storage:/storage/reports
+
+       #################################################################################
+  #################################################################################
+  ########## gothomis-rch-service
+  #################################################################################
+  #################################################################################
+
+  # gothomis-rch-service   
+  gothomis-rch-service:
+    image: gothomis-rch-service-image
+    container_name: gothomis-rch-service-container
+    build:
+      context: ./services/gothomis-rch-service
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN_NAME: ${SERVER_IP_ADDRESS}
+      #SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILES}
+      RCH_DB_URL: jdbc:postgresql://${RCH_DB_HOST}:${RCH_DB_PORT}/${RCH_DB}
+      RCH_DB_USER: ${RCH_DB_USER}
+      RCH_DB_PASSWORD: ${RCH_DB_PASS}
+      RABBITMQ_PORT: ${RABBIT_PORT}
+      RABBITMQ_HOST: ${RABBIT_HOST}
+      RABBITMQ_USERNAME: ${RABBIT_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBIT_PASSWORD}
+      GATEWAY_PORT: ${GATEWAY_PORT}
+      DISCOVERY_URL: ${SERVER_IP_ADDRESS}
+      DISCOVERY_PORT: ${DISCOVERY_PORT}
+      AUTHENTICATION_PORT: ${GATEWAY_PORT}
+      RCH_PORT: ${RCH_PORT}
+
+    ports:
+      - "${RCH_PORT}:${RCH_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-discovery-service
+      - gothomis-rch-service-postgres
+      - gothomis-rabbitmq
+    links:
+      - gothomis-rch-service-postgres
+      - gothomis-rabbitmq
+      - gothomis-discovery-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-rch-service/tmp:/tmp/
+      - ./services-data/gothomis-rch-service/storage/images:/storage/images
+      - ./services-data/gothomis-rch-service/storage:/storage/reports
+
+
+ #################################################################################
+  #################################################################################
+  ########## gothomis-rch-service-postgres
+  #################################################################################
+  #################################################################################
+
+  # gothomis-rch-service-postgres
+  gothomis-rch-service-postgres:
+    #image: "postgres:17"
+    image: registry.tamisemi.go.tz/gothomis-production/gothomis-postgres:3.0.0V-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    container_name: "gothomis-rch-service-postgres"
+    #shm_size: '256m'
+    shm_size: '4gb'
+    environment:
+      - POSTGRES_USER=${RCH_DB_USER}
+      - POSTGRES_PASSWORD=${RCH_DB_PASS}
+      - POSTGRES_DB=${RCH_DB}
+      - PGDATA=/var/lib/postgresql/data
+      - TZ=GMT+3
+      - PGTZ=GMT+3
+    ports:
+      - "${RCH_DB_PORT}:5432"
+    networks:
+      - gothomis-net
+    volumes:
+      - ./db-data/gothomis-rch-service-postgres:/var/lib/postgresql/data
+      #- ./all-backups/upgrade-03-02-2026/gothomis_rch_db_dump.sql:/docker-entrypoint-initdb.d/gothomis_rch_db_dump.sql
+
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+
+      # #################################################################################
+      # #################################################################################
+      # ########## gothomis-web  
+      # #################################################################################
+      # #################################################################################
+
+      # gothomis-web   
+  gothomis-web:
+    image: gothomis-web-image
+    #image: registry.tamisemi.go.tz/gothomis-production/gothomis-web:1.0.0V-prod
+    ulimits:
+      nofile:
+        soft: 200000
+        hard: 200000
+    container_name: gothomis-web-container
+    build:
+      context: ./services/gothomis-web
+      dockerfile: DockerfileLocal
+    ports:
+       - "8081:80"
+      # - "80:80"
+      # - "443:443"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-gateway-service
+    links:
+      - gothomis-gateway-service
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./keys/star_tpf_go_tz_bundle.crt:/etc/nginx/ssl/star_tpf_go_tz_bundle.crt
+      - ./keys/tpf.go.tz.key:/etc/nginx/ssl/tpf.go.tz.key
+      - ./web/gothomis-web-nginx-config/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./web/gothomis-web-nginx-config/nginx-main.conf:/etc/nginx/nginx.conf
+    environment:
+      UAA_SERVICE_WEB_CLIENT_ID: ${UAA_SERVICE_WEB_CLIENT_ID}
+      UAA_SERVICE_WEB_CLIENT_SECRET: ${UAA_SERVICE_WEB_CLIENT_SECRET}
+
+
+#################################################################################
+#################################################################################
+########## gothomis-pgadmin-service
+#################################################################################
+#################################################################################
+  gothomis-pgadmin-service:
+    image: dpage/pgadmin4:8
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_USER}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASS}
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "55555:80"
+    networks:
+        - gothomis-net
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+
+      
+networks:
+  gothomis-net:
+    driver: bridge
+
+volumes:
+  pgadmin-data:
+  db-data:
+  services-data:
+  
+  gothomis-device-service:
+    image: gothomis-device-service-image
+    container_name: gothomis-device-service-container
+    build:
+      context: ./services/gothomis-device-service
+      dockerfile: Dockerfile
+    environment:
+    ports:
+      - "${DEVICE_PORT}:${DEVICE_PORT}"
+    networks:
+      - gothomis-net
+    depends_on:
+      - gothomis-investigation-service
+      - gothomis-rabbitmq
+    links:
+      - gothomis-investigation-service-postgres
+      - gothomis-rabbitmq
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "5"
+    volumes:
+      - ./services-data/gothomis-device-service/tmp:/tmp/
+      - ./services-data/gothomis-device-service/storage/images:/storage/images
+      - ./services-data/gothomis-device-service/storage:/storage/reports
+
+
+====================================================================================================================================================================================================
+
+phmis_root@phmis:~/phmis$ cat deploy-test.sh
+
+#!/bin/bash
+source /home/phmis_root/.bash_profile
+#sudo chown -R $USER:$USER /home/tamisemi/gothomis/frontend.sh
+#sudo chown -R $USER:$USER /home/tamisemi/gothomis/image-build.sh
+#sudo chown -R $USER:$USER /home/tamisemi/gothomis/services/gothomis-web
+GOTHOMIS_APP_PATH=$(pwd)
+echo $GOTHOMIS_INSTALLED_PATH
+mkdir -p $GOTHOMIS_INSTALLED_PATH/services
+cd $GOTHOMIS_INSTALLED_PATH/services
+
+
+#buildNadRunContainer(){
+    #cd $GOTHOMIS_INSTALLED_PATH
+    #docker-compose build $1 && docker-compose up -d $1
+    #docker-compose build && docker-compose up -d
+#}
+buildNadRunContainer(){
+    local service_name=$1
+    local timestamp=$(date +%Y%m%d%H%M%S)
+    local current_image="${service_name}-image:latest"
+    local backup_tag="${service_name}-image:backup-${timestamp}"
+
+    if docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "${current_image}"; then
+        echo "Backing up existing image: $current_image as $backup_tag"
+        docker tag "$current_image" "$backup_tag"
+    else
+        echo "No existing image found for $service_name, skipping backup."
+    fi
+
+    cd $GOTHOMIS_INSTALLED_PATH
+    docker compose build "$service_name" && docker compose up -d "$service_name"
+}
+
+ mvn install:install-file \
+   -Dfile=$GOTHOMIS_INSTALLED_PATH/library/gothomis-shared-utils-service/gothomis-shared-utils-service.jar \
+   -DgroupId=tz.go.tanzania.shared.utils \
+   -DartifactId=gothomis-shared-utils-service \
+   -Dversion=0.0.9-RELEASE \
+   -Dpackaging=jar \
+   -DgeneratePom=true
+
+declare -a arr=(
+
+   # "gothomis-web"
+   # "gothomis-gateway-service"
+   # "gothomis-discovery-service"
+   # "gothomis-uaa-service"
+   # "gothomis-item-service"
+   #"gothomis-client-service"
+   # "gothomis-insurance-service"
+   # "gothomis-pharmacy-service"
+   # "gothomis-cdc-service"
+   # "gothomis-consultation-service"
+   # "gothomis-jazia-service"
+   # "gothomis-reminder-service"
+   # "gothomis-billing-service"
+   # "gothomis-investigation-service"
+   # "gothomis-mariadb"
+   # "gothomis-report-service"
+   # "gothomis-diabetic-service"
+   # "gothomis-rch-service"
+   # "gothomis-dhis2-service"
+
+    )
+
+for i in "${arr[@]}"
+do
+   echo "$i"
+   sleep 3
+    REPOSRC=$GIP_ADDRESS/tpf-gothomis/$i.git
+    LOCALREPO=$i
+    LOCALREPO_VC_DIR=$LOCALREPO
+    BRANCH=test
+
+
+    echo $REPOSRC $LOCALREPO
+
+    if [ ! -d $LOCALREPO_VC_DIR ]
+    then
+        #git clone --single-branch --branch ${BRANCH} https://$GIT_USERNAME:$GIT_PASSWORD@$REPOSRC $LOCALREPO
+        #git clone --single-branch --branch ${BRANCH} git@192.168.44.29:tpf-gothomis/$i.git
+        git clone --single-branch --branch ${BRANCH} git@$GIP_ADDRESS:TPF-PHMIS/$i.git
+        cd $LOCALREPO
+
+        if [ "$LOCALREPO" == "gothomis-web" ]
+        then
+            echo "Yes equal to gothomis-web"
+            npm install --force
+             ng build
+            buildNadRunContainer "${LOCALREPO}" 
+       
+        else
+            echo "Not Web"
+            #docker tag $REGISTRY_ADDRESS/gothomis-production/$LOCALREPO:$PUSH_TAG $REGISTRY_ADDRESS/gothomis-production/$LOCALREPO:$PUSH_TAG-backup-$(date +%Y%m%d%H%M%S)
+            mvn clean install -DskipTests
+            buildNadRunContainer "${LOCALREPO}"
+        fi
+
+       # mvn package spring-boot:repackage
+       
+        cd $GOTHOMIS_INSTALLED_PATH/services
+
+    else
+        cd $LOCALREPO
+        git pull
+
+        if [ "$LOCALREPO" == "gothomis-web" ]
+        then
+            echo "Yes equal to gothomis-web"
+            npm install --force
+            ng build 
+            buildNadRunContainer "${LOCALREPO}"
+            
+        else
+            echo "Not Web"
+            mvn clean install -DskipTests
+            buildNadRunContainer "${LOCALREPO}"
+        fi
+
+        cd $GOTHOMIS_INSTALLED_PATH/services 
+  
+    fi
+done
+
+cd $GOTHOMIS_INSTALLED_PATH
+#docker compose build gothomis-web
+#docker compose build gothomis-web && docker-compose stop gothomis-web && docker compose up -d gothomis-web
+
+phmis_root@phmis:~/phmis$ 
+
+========================================================================================================================================================================
+

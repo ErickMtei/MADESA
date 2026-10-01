@@ -1,0 +1,135 @@
+Install & Deploy Redis Using Docker
+
+1. Verify Docker Installation
+On your Ubuntu Server, run:
+docker --version
+docker compose version
+
+2. Create a Redis Project Directory
+We'll use /opt/redis as our deployment directory.
+sudo mkdir -p /opt/redis
+cd /opt/redis
+
+Create a directory for persistent data:
+sudo mkdir -p data
+
+3.Create Redis Password
+Generate a strong password:
+openssl rand -base64 32
+
+Copy the generated password.
+Create the environment file:
+nano .env
+
+Add:
+REDIS_PASSWORD=CHANGE_THIS_TO_YOUR_STRONG_PASSWORD
+Save it
+
+Secure the file:
+chmod 600 .env
+
+4. Create Docker Compose File
+nano docker-compose.yml
+Paste the following:
+
+services:
+  redis:
+    image: redis:7.4
+    container_name: redis
+    restart: unless-stopped
+
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD}
+
+    volumes:
+      - ./data:/data
+
+    networks:
+      - redis_network
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli -a \"$${REDIS_PASSWORD}\" ping"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  redis_network:
+    driver: bridge
+	
+Understanding the configuration
+Configuration                     Purpose
+redis:7.4                         Redis image version
+restart: unless-stopped           Restarts the container after failures or host restarts
+appendonly yes                    Enables AOF persistence
+requirepass                       Requires authentication
+./data:/data                      Persistent host storage
+redis_network                     Private Docker network
+healthcheck                       Checks Redis availability
+
+Security note: We have not published port 6379 to the host. This keeps Redis accessible through its Docker network rather than exposing it directly on the host's network interfaces.
+
+5. Deploy Redis
+Run:
+docker compose up -d
+
+Check the container:
+docker ps
+
+Expected status should show Redis running, although the health status may take a few seconds to appear.
+Check logs:
+docker compose logs -f redis
+Press CTRL + C to exit the log view.
+
+6. Test Redis Using redis-cli
+First, load the password from .env into your shell:
+source .env
+
+Connect to Redis:
+docker exec -it redis redis-cli -a "$REDIS_PASSWORD"
+
+You should enter the Redis CLI.
+Test:
+PING
+Expected:
+PONG
+Congratulations! You have a running Redis container and can communicate with the Redis server.
+
+7. Test Basic Redis Commands
+Inside redis-cli, run:
+
+SET
+SET name Erick
+Expected:
+OK
+
+GET
+GET name
+Expected:
+"Erick"
+
+Check whether a key exists
+EXISTS name
+Expected:
+(integer) 1
+
+Delete a key
+DEL name
+Expected:
+(integer) 1
+
+Check again
+GET name
+Expected:
+(nil)
+
+Exit Redis CLI:
+exit

@@ -1,0 +1,277 @@
+NIMEANZA KUDEPLOY POSTGRES AMBAYO IPO KWENY CONTAINER MOJA THEN KUCREATE DATABASE NYINGINE NDANI YAKE 
+/opt/tpf/icris-database/
+├── .env
+├── init/
+│   └── 01-create-databases.sql
+└── data/
+
+nano .env
+POSTGRES_SUPERUSER=postgres_admin
+POSTGRES_PASSWORD=CHANGE_THIS_STRONG_PASSWORD
+POSTGRES_PORT=5432
+
+LINDA FILE
+chmod 600 .env
+
+nano init/01-create-databases.sql
+
+-- ------------------------------------------------------------
+-- 1. APPLICATION USERS
+-- ------------------------------------------------------------
+
+CREATE USER exhibit_user
+    WITH PASSWORD 'exhibit@2026';
+
+CREATE USER pf3_user
+    WITH PASSWORD 'pf3@2026';
+
+CREATE USER property_user
+    WITH PASSWORD 'property@2026';
+
+CREATE USER detention_user
+    WITH PASSWORD 'detention@2026';
+
+CREATE USER investigation_user
+    WITH PASSWORD 'investigation@2026';
+
+CREATE USER report_book_user
+    WITH PASSWORD 'report@2026';
+
+CREATE USER refdata_user
+    WITH PASSWORD 'refdata@2026';
+
+CREATE USER status_user
+    WITH PASSWORD 'status@2026';
+
+CREATE USER reporting_user
+    WITH PASSWORD 'reporting@2026';
+
+-- ============================================================
+-- DATABASES
+-- ============================================================
+
+CREATE DATABASE exhibit_db
+    OWNER exhibit_user;
+
+CREATE DATABASE pf3_db
+    OWNER pf3_user;
+
+CREATE DATABASE property_db
+    OWNER property_user;
+
+CREATE DATABASE detention_db
+    OWNER detention_user;
+
+CREATE DATABASE investigation_db
+    OWNER investigation_user;
+
+CREATE DATABASE report_book_db
+    OWNER report_book_user;
+
+CREATE DATABASE refdata_db
+    OWNER refdata_user;
+
+CREATE DATABASE status_db
+    OWNER status_user;
+
+CREATE DATABASE reporting_db
+    OWNER reporting_user;
+
+
+-- ============================================================
+-- EXHIBIT
+-- ============================================================
+
+\connect exhibit_db
+
+GRANT USAGE, CREATE ON SCHEMA public TO exhibit_user;
+
+ALTER SCHEMA public OWNER TO exhibit_user;
+
+
+-- ============================================================
+-- PF3
+-- ============================================================
+
+\connect pf3_db
+
+GRANT USAGE, CREATE ON SCHEMA public TO pf3_user;
+
+ALTER SCHEMA public OWNER TO pf3_user;
+
+
+-- ============================================================
+-- PROPERTY
+-- ============================================================
+
+\connect property_db
+
+GRANT USAGE, CREATE ON SCHEMA public TO property_user;
+
+ALTER SCHEMA public OWNER TO property_user;
+
+
+-- ============================================================
+-- DETENTION
+-- ============================================================
+
+\connect detention_db
+
+GRANT USAGE, CREATE ON SCHEMA public TO detention_user;
+
+ALTER SCHEMA public OWNER TO detention_user;
+
+
+-- ============================================================
+-- INVESTIGATION
+-- ============================================================
+
+\connect investigation_db
+
+GRANT USAGE, CREATE ON SCHEMA public TO investigation_user;
+
+ALTER SCHEMA public OWNER TO investigation_user;
+
+
+-- ============================================================
+-- REPORT BOOK
+-- ============================================================
+
+\connect report_book_db
+
+GRANT USAGE, CREATE ON SCHEMA public TO report_book_user;
+
+ALTER SCHEMA public OWNER TO report_book_user;
+
+-- ============================================================
+-- REFDATA
+-- ============================================================
+
+\connect refdata_db
+
+GRANT USAGE, CREATE ON SCHEMA public TO refdata_user;
+
+ALTER SCHEMA public OWNER TO refdata_user;
+
+
+-- ============================================================
+-- STATUS
+-- ============================================================
+
+\connect status_db
+
+GRANT USAGE, CREATE ON SCHEMA public TO status_user;
+
+ALTER SCHEMA public OWNER TO status_user;
+
+
+-- ============================================================
+-- REPORTING
+-- ============================================================
+
+\connect reporting_db
+
+GRANT USAGE, CREATE ON SCHEMA public TO reporting_user;
+
+ALTER SCHEMA public OWNER TO reporting_user;
+
+
+-----------------------------------------------------------------------------------
+Django Exhibit ita-connect hivi
+--> utaona kweny setting.py ya mfumo husika
+KUNA NJIA HII YA VARIABLE
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=exhibit_db
+DB_USER=exhibit_user
+DB_PASSWORD=EXHIBIT_PASSWORD_YAKO
+DB_HOST=postgres
+DB_PORT=5432
+
+KUNA NJIA YA URL
+DATABASE_URL=postgresql://exhibit_user:PASSWORD@postgres:5432/exhibit_db
+
+--------------------------------------------------------------------------------------
+Rabbitmq ita-connect hivi
+---> apa ndo kuna file linaloongelea issue za rabbitmq
+packages/register_scaffold/register_scaffold/broker.py
+
+KUNA NJIA YA VARIABLE AU URL INADEPEND NA IYO FILE LA broker.py
+BROKER_BACKEND=rabbitmq
+RABBITMQ_URL=amqp://icris_user:StrongPassword@rabbitmq:5672/%2F
+---%2F inamaana /
+             amqp://icris_user:PASSWORD@rabbitmq:5672/%2Ficris
+%2Ficris inamaana /icris
+
+RABBITMQ_URL=amqp://icris_user:icris@2026@rabbitmq:5672/%2Ficris
+
+services:
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: icris_rabbitmq
+    restart: unless-stopped
+
+    environment:
+      RABBITMQ_DEFAULT_USER: icris_user
+      RABBITMQ_DEFAULT_PASS: your_password
+
+    volumes:
+      - ./rabbitmq-data:/var/lib/rabbitmq
+
+    networks:
+      - icris_network
+
+networks:
+  icris_network:
+    name: icris_network
+	
+----------------------------------------------------------------------------------------------
+keycloack
+  # =========================
+  # KEYCLOAK SSO
+  # =========================
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.4
+    container_name: icris_keycloak
+    restart: unless-stopped
+
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak_db
+      KC_DB_USERNAME: keycloak_user
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
+
+    command:
+      - start
+      - --http-enabled=true
+
+    ports:
+      - "8085:8080"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - icris_network
+	  
+nano /opt/tpf/ICRIS/icris/.env
+KEYCLOAK_DB_PASSWORD=YOUR_STRONG_DATABASE_PASSWORD
+
+KEYCLOAK_ADMIN_USER=icris_admin
+KEYCLOAK_ADMIN_PASSWORD=YOUR_STRONG_ADMIN_PASSWORD
+
+KEYCLOAK_HOSTNAME=localhost
+
+
+cd /opt/tpf/icris/icris/deploy/keycloack
+kuna file lilikuwepo apo
+
+
+----------------------------------------------------------------------------------------------------------

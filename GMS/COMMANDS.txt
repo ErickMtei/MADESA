@@ -1,0 +1,727 @@
+======================== COMMANDS ============================================================
+
+======================= TO FIND FILE IN DIRECTORY ================== 
+   Use find from root /
+>> find / -name "filename" 2>/dev/null
+
+>> locate "filename"
+
+=================== FIND RUNNING PROCESSES ========================== 
+
+>> ps aux
+
+=================== EXPORT ALL MANAGED USERS IN LDAP ================ 
+in mbox-server
+
+>> ldapsearch -x -D "cn=vmail,dc=tpf,dc=go,dc=tz" -w "cwCdoRCc" \
+-b "domainName=tpf.go.tz,o=domains,dc=tpf,dc=go,dc=tz" \
+"(&(objectClass=mailuser)(mail=*)(accountstatus=active))" \
+cn mail employeeNumber | \
+awk '
+/^cn: / {cn=$2}
+/^mail: / {mail=$2}
+/^employeeNumber: / {id=$2}
+/^$/ {if(cn && mail && id) print cn "," mail "," id; cn=""; mail=""; id=""}
+' > /tmp/tpfUsers.csv
+
+
+================== EXPORT DATABASE ===================================
+
+Dump a single database
+>>  mysqldump -u username -p db_name > db_name.sql
+
+Dump all databases
+>>  mysqldump -u username -p --all-databases > all_dbs.sql
+
+Dump specific tables
+>>  mysqldump -u username -p db_name table1 table2 > tables.sql
+
+Restore dump
+>>  mysql -u username -p db_name < db_name.sql
+mysql -u fidia -p compensation_db < compensation_db.sql
+mysql -u silaha -p farisdb2 < 
+
+Restore from compressed backup
+>>  gunzip < db_name.sql.gz | mysql -u username -p db_name
+
+============== VIM =====================================================
+Search 
+>>  /word
+using n for NEXT
+      N for PREVIOUS
+
+>> /\<word\>
+
+Search and replace
+>> :%s/old/new/g
+
+delete entire file
+>> :%d
+
+copy entire file
+>> :%y
+
+replace 
+> :%s/192\.168\.57\.29\:8009/192.168.57.22:8008/gc
+
+
+=========== SCP =========================================================
+
+Copy file from local → Ubuntu server
+>> scp file.txt username@server_ip:/tmp/
+
+Copy file from server → container
+>> docker cp /tmp/file.txt <container_name>:/path/inside/container
+
+docker cp favicon.ico mail-ui-gms-tpf:/var/www/html/skins/karume/images
+
+Copy file from container to host
+>> docker cp <container_name>:/path/to/archive.zip /local/path/ or ==use .====
+
+Move file from server → your local compmailuter
+>> scp user@server_ip:/path/to/archive.zip .
+
+======== CONVERT BETWEEN PNG AND WEBP =====================================
+# PNG → WebP
+cwebp image.png -o image.webp
+
+# WebP → PNG
+dwebp image.webp -o image.png
+
+============== ZIP ========================================================
+>> zip -r archive_name.zip folder_name/
+
+============= CACHE =======================================================
+
+Clear application cache (example: PHP / Laravel)
+
+PHP OPcache restart:
+>> sudo systemctl restart php-fpm
+
+Laravel:
+>> php artisan cache:clear
+>> php artisan config:clear
+>> php artisan view:clear
+
+Clear Docker cache
+>> docker system prune -a
+
+============ OPENSSL =======================================================
+Check certificate expiration
+>> openssl x509 -in server.crt -noout -dates
+
+Check certificate details (issuer, subject, etc.)
+>> openssl x509 -in server.crt -noout -text
+
+=========== CREATE USER  ===================================================
+useradd -m erickmtei
+
+passwd erickmtei
+
+==================================== ROOT privallages ======================
+usermod -aG wheel erickmtei
+
+usermod -aG sudo <your_username>
+
+========== TO LOCK ROOT USER 0R DISABLE ROOT ================================================
+
+usermod -L root
+
+OpenBSD
+passwd -- l root
+
+Disable root SSH access
+Now that your new user is set up, you should disable direct login for the root account. This reduces your attack surface.
+
+Open the SSH configuration file:
+sudo nano /etc/ssh/sshd_config
+
+Find the line PermitRootLogin yes and change it to no. Also, find the line PasswordAuthentication yes and change it to no. This explicitly forces the server to use SSH keys and reject all password login attempts.
+
+sudo systemctl restart ssh
+
+
+===== TO ALLOW DOAS SU =======================================================
+
+echo "permit persist :wheel" > /etc/doas.conf
+chmod 600 /etc/doas.conf
+
+================== CURL ======================================================
+
+ curl http://server-ip:port
+
+
+================ SINGLE DATABASE STORAGE ======================================
+SELECT
+    table_schema,
+    ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb
+FROM information_schema.tables
+WHERE table_schema='testuju'
+GROUP BY table_schema;
+
+=============== TO EXTRA A DATABASE WITH 5 DATA FOR EACH TABLE==================
+
+export MYSQL_PWD='tpfroom@clear2026'
+
+DB="inspection"
+USER="root"
+OUTPUT="inspection.sql"
+
+mysqldump -u "$USER" --no-data "$DB" > "$OUTPUT"
+
+for t in $(mysql -u "$USER" -N -e "SHOW TABLES FROM $DB"); do
+    mysqldump -u "$USER" --no-create-info "$DB" "$t" --where="1 LIMIT 5" >> "$OUTPUT"
+done
+
+unset MYSQL_PWD
+
+=================================TO CHECK WEBSERVER ================================
+
+> ps aux | grep -E "apache2|httpd|nginx"
+> systemctl list-units --type=service --state=running
+
+Apache
+Angalia virtual hosts:
+> apache2ctl -S
+
+Nginx
+Angalia configuration:
+>nginx -T
+au > ls /etc/nginx/sites-enabled/
+
+============================= TO CHECK OPEN PORT WEBSERVER LISTEN ===================
+
+> ss -tulpn
+
+======================== GIT ========================================================
+Mental model ya Git
+Working Directory
+      ↓ git add
+Staging Area
+      ↓ git commit
+Local Repository
+      ↓ git push
+Remote Repository (GitLab/GitHub)
+--------------------------------
+Remote Repository
+      ↓ git fetch
+Local Repository
+      ↓ git merge / git pull
+Working Directory
+
+git status
+git add .
+git commit -m "message"
+git log --oneline
+git diff
+git branch
+git switch
+git pull
+git push
+git fetch
+git stash
+git show
+git revert
+git reset
+git rm --cached .env
+git cherry-pick
+
+git ls-files .env
+git check-ignore -v .env
+git remote add origin git@192.168.57.29:hrmis-portal/compesation.git
+git pull --no-rebase origin production
+
+
+======================= MYSQL ========================================================
+Allow remote connections
+Edit MySQL configuration.
+Ubuntu
+/etc/mysql/mysql.conf.d/mysqld.cnf
+
+check the users and privileges
+SHOW GRANTS FOR 'silaha'@'%';
+
+TO ALTER PASSWORD
+ALTER USER 'zpc_user'@'%' IDENTIFIED BY 'zanzibar_2026';
+FLUSH PRIVILEGES;
+
+TO DROP USER
+> DROP USER 'cewer'@'%';
+
+Check users:
+> SELECT user,host, plugin FROM mysql.user;
+
+create user can access remote;
+CREATE USER 'fidia'@'%' IDENTIFIED BY 'fidia@phq';
+
+GRANT ALL PRIVILEGES ON farisdb2.* 
+TO 'silaha'@'%';
+
+FLUSH PRIVILEGES;
+
+======================= GREP COMMAND ===========================================
+
+> grep -R "http://192.168.57.34:8004/categories/" -n 
+
+=================== COMMAND TO COUNT USER IN USER ACCESS.LOG  ===================
+
+zcat lormis_access.log.2.gz | awk 'BEGIN{m["Jan"]="01";m["Feb"]="02";m["Mar"]="03";m["Apr"]="04";m["May"]="05";m["Jun"]="06";m["Jul"]="07";m["Aug"]="08";m["Sep"]="09";m["Oct"]="10";m["Nov"]="11";m["Dec"]="12"}{ip=$1; raw=substr($4,2); split(raw,a,":"); split(a[1],d,"/"); ts=mktime(sprintf("%s %s %s %s %s %s",d[3],m[d[2]],d[1],a[2],a[3],a[4])); if(!(ip in last)||(ts-last[ip]>=3600)){count++; last[ip]=ts}}END{print count+0}'
+
+=================================== TO REVOVER FLASH DRIVE===============================
+chkdsk E: /f
+
+diskpart
+select disk 1
+clean
+create partition primary
+format fs=fat32 quick
+assign
+
+USE [TESTDISK] FOR RECOVER DATA
+
+====================================TIME ==============================================
+date
+timedatectl list timezones
+timedatectl set-timezones Africa/Dar-es-Salaam
+
+MAKE SURE NTP IS ENABLE , CHRONY IS INSTALLED
+apt update && sudo apt install chrony -y
+ nano /etc/chrony/chrony.conf
+ 
+=================== TO GENERATE SSH KEY =================================================
+ssh-keygen 
+
+To generate a key, open the terminal on your local computer. Use the Ed25519 algorithm, which is faster and more secure than the older RSA standard.
+
+ssh-keygen -t ed25519 -f ~/.ssh/<your_key_name> -C "<key_comment>"
+Here is what the arguments do:
+
+-t ed25519: Specifies the modern Ed25519 algorithm.
+-f ~/.ssh/<your_key_name>: Saves the key with a specific name so you don’t overwrite your default keys.
+-C "<key_comment>": Adds a comment to help you identify the key.
+The system will ask you to add a passphrase. This is an extra password to protect your private key. If someone steals your private key file, they cannot use it without this passphrase.
+
+ssh-keygen -t ed25519 -f ~/.ssh/<your_key_name> -C "<key_comment>"
+
+# Output:
+Generating public/private ed25519 key pair.
+Enter passphrase for "/home/<your_username>/.ssh/<your_key_name>" (empty for no passphrase):
+I strongly recommend adding a passphrase for your personal key.
+
+Note
+
+If you need a key for a CI/CD pipeline later (to deploy code automatically), generate a separate key pair without a passphrase. Never remove the passphrase from your personal key.
+
+You have generated the key pair. Now, copy the public key.
+
+cat ~/.ssh/<your_key_name>.pub
+The command displays your public key. Copy the entire text starting with ssh-ed25519. Paste it into the box, give it a name, and click Add SSH Key.
+
+KWENY SERVER DIRECT USING TERMILAL
+nano ~/.ssh/authorized_keys
+copy the entire your public key
+exit
+THEN
+chmod 600 ~/.ssh/authorized_keys
+
+Use the SSH command to connect to the machine. Pass your private key using the -i flag and add your IP address after root@.
+ssh -i ~/.ssh/<your_key_name> root@<your_droplet_ip>
+
+write that for login maybe rediculous for inorder to simplifiy that lets do this;
+On your local computer (not the server), open or create the SSH config file:
+
+nano ~/.ssh/config
+Add the following configuration block at the bottom of the file:
+
+Host my-website
+    HostName <your_droplet_ip>
+    User <your_username>
+    IdentityFile ~/.ssh/<private_key_name>
+    IdentitiesOnly yes
+	
+after save the file
+
+You can simply type:
+ssh my-website
+
+==================================== TO CHECK OS ============================================
+uname -a
+cat /etc/os-release
+========================================== HAProxy ============================================
+
+sudo apt update
+sudo apt install haproxy -y
+sudo cp /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.backup
+#---------------------------------------------------------------------
+# GLOBAL SETTINGS
+#---------------------------------------------------------------------
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+
+    # Performance tuning
+    maxconn 50000
+    nbthreads 4
+    tune.ssl.default-dh-param 2048
+
+    # SSL/TLS settings (security hardening)
+    ssl-default-bind-ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384
+    ssl-default-bind-options no-sslv3 no-tlsv10 no-tlsv11 no-tls-tickets
+    ssl-default-server-options no-sslv3 no-tlsv10 no-tlsv11
+
+#---------------------------------------------------------------------
+# DEFAULTS
+#---------------------------------------------------------------------
+defaults
+    log     global
+    mode    http
+    option  httplog
+    option  dontlognull
+    option  http-server-close
+    option  forwardfor       except 127.0.0.0/8
+    option  redispatch
+    retries 3
+    timeout http-request    10s
+    timeout queue           1m
+    timeout connect         10s
+    timeout client           1m
+    timeout server            1m
+    timeout http-keep-alive  10s
+    timeout check            10s
+    maxconn                 3000
+
+    # Error pages za custom (hiari)
+    # errorfile 503 /etc/haproxy/errors/503.http
+	errorfile 400 /etc/haproxy/errors/400.http
+    errorfile 403 /etc/haproxy/errors/403.http
+    errorfile 408 /etc/haproxy/errors/408.http
+    errorfile 500 /etc/haproxy/errors/500.http
+    errorfile 502 /etc/haproxy/errors/502.http
+    errorfile 503 /etc/haproxy/errors/503.http
+    errorfile 504 /etc/haproxy/errors/504.http
+
+#---------------------------------------------------------------------
+# STATS DASHBOARD (kufuatilia afya ya backend)
+#---------------------------------------------------------------------
+listen stats
+    bind *:8404
+    mode http
+    stats enable
+    stats uri /haproxy?stats
+    stats refresh 10s
+    stats auth admin:UmbadilisheHiiPassword123!
+    stats admin if TRUE
+
+#---------------------------------------------------------------------
+# FRONTEND - HTTP (Inaredirect kwenda HTTPS)
+#---------------------------------------------------------------------
+frontend http_front
+    bind *:80
+    mode http
+    redirect scheme https code 301 if !{ ssl_fc }
+
+#---------------------------------------------------------------------
+# FRONTEND - HTTPS
+#---------------------------------------------------------------------
+frontend https_front
+    bind *:443 ssl crt /etc/haproxy/certs/mydomain.pem alpn h2,http/1.1
+    mode http
+
+    # Usalama - HSTS header
+    http-response set-header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+    # Rate limiting dhidi ya DDoS/abuse
+    stick-table type ip size 200k expire 30s store http_req_rate(10s)
+    http-request track-sc0 src
+    http-request deny deny_status 429 if { sc_http_req_rate(0) gt 100 }
+
+    # ACLs za ku-route trafiki (path-based routing - hiari)
+    acl is_api path_beg /api
+    acl is_static path_beg /static /assets
+
+    use_backend api_servers if is_api
+    use_backend static_servers if is_static
+    default_backend web_servers
+
+#---------------------------------------------------------------------
+# BACKEND - Web servers kuu (round robin + health checks)
+#---------------------------------------------------------------------
+backend web_servers
+    mode http
+    balance roundrobin           # au: leastconn, source, uri
+    option httpchk GET /health
+    http-check expect status 200
+
+    default-server inter 3s fall 3 rise 2 slowstart 60s maxconn 500
+
+    server web1 10.0.1.11:80 check cookie web1
+    server web2 10.0.1.12:80 check cookie web2
+    server web3 10.0.1.13:80 check cookie web3 backup
+
+    cookie SERVERID insert indirect nocache
+
+#---------------------------------------------------------------------
+# BACKEND - API servers (leastconn ni bora kwa API)
+#---------------------------------------------------------------------
+backend api_servers
+    mode http
+    balance leastconn
+    option httpchk GET /api/health
+    http-check expect status 200
+
+    default-server inter 2s fall 2 rise 3
+
+    server api1 10.0.2.11:8080 check
+    server api2 10.0.2.12:8080 check
+    server api3 10.0.2.13:8080 check
+
+#---------------------------------------------------------------------
+# BACKEND - Static content
+#---------------------------------------------------------------------
+backend static_servers
+    mode http
+    balance roundrobin
+    option httpchk GET /
+    server static1 10.0.3.11:80 check
+    server static2 10.0.3.12:80 check
+	
+TEST CONFIGURATION
+sudo haproxy -c -f /etc/haproxy/haproxy.cfg
+RESTART HAProxy
+sudo systemctl restart haproxy
+
+
+====================KEEPALIVED CONFIGURATION======================================================
+sudo apt update
+sudo apt install keepalived -y
+---/etc/keepalived/keepalived.conf
+----------------------------------------------------------------------------------------------------------------
+global_defs {
+    router_id LB01     ---------------- LB02
+    script_security
+}
+
+vrrp_script chk_haproxy {
+    script "/usr/bin/systemctl is-active --quiet haproxy"
+    interval 2
+    weight -60
+    fall 2
+    rise 2
+    user root
+}
+
+vrrp_instance VI_1 {
+    state MASTER          ------------ BACKUP
+    interface ens18
+    virtual_router_id 51
+    priority 150         ------------- CHANGE
+    advert_int 1
+    garp_master_delay 5
+
+    authentication {
+        auth_type PASS
+        auth_pass MyPass1
+    }
+
+    unicast_src_ip 192.168.xx.xx   ---------- IP YA SEVA HUSIKA LB01
+    unicast_peer {
+        192.168.xx.xx              ---------- IP YA SEVA HUSIKA LB02
+    }
+
+    virtual_ipaddress {
+        192.168.xx.xx/24          ---------- IP YA VIP AMBAYO HAITUKI NA DEVICE YYT KWENYE NETWORK 
+    }
+
+    track_script {
+        chk_haproxy
+    }
+
+    notify_master "/etc/keepalived/notify.sh MASTER"
+    notify_backup "/etc/keepalived/notify.sh BACKUP"
+    notify_fault  "/etc/keepalived/notify.sh FAULT"
+}
+
+----------------------------------------------------------------------------------------------------------------
+
+sudo systemctl enable --now keepalived
+journalctl -u keepalived -f
+ip addr show ens18
+
+Keepalived = failover ya VIP; HAProxy = load balancing
+
+========== PERMISSION ===============================================================
+chown -R root:root file o directory
+chmod -R 755 file o directory
+chmod +X file
+
+================ NETWORK COMMAND ====================================================
+KUCHECK IP NA KUADD IP KWENY INTERFACE
+ip addr
+ip addr add 192.168.xx.xx/24 dev ens18
+ip addr del 192.168.xx.xx/24 dev ens33
+
+KUANGALIA ROUTE TABLE
+ip route
+
+DNS TEST
+resolvesctl status
+
+ARP /NEIGHBOR TABLE
+ip neigh
+
+FIREWALL
+ufw status
+ufw allow portNo
+
+---network important file
+/etc/netplan/*.yaml
+/etc/hosts
+/etc/hostname
+/etc/resolv.conf
+/etc/ufw/
+
+=========================================== TO SOLVE WELCOME TO NGINX ,NO INDEX PAGE  =============================================
+
+docker exec -it <frontend-container> curl -I http://localhost
+docker exec -it <frontend-container> ls -lah /usr/share/nginx/html/
+docker exec -it <frontend-container> nginx -T 2>&1
+docker exec famis_frontend_portal cat /usr/share/nginx/html/index.html
+-------------------------------------
+IKIWA INDEX.HTML HAIPO KWENY CONTAINER 
+Ndiyo, tunaweza kuacha kuzunguka kwenye build na tukaweka frontend files moja kwa moja kwenye Nginx container kwa volume. Lakini kuna point moja muhimu: .gitignore uliyoonyesha si .dockerignore. Docker build haijasome .gitignore kama ignore file ya build context.
+Kwa hiyo tunahitaji kujua kwa nini Docker build inachukua 3.50kB tu. Lakini kwa kuwa unataka solution inayofanya kazi sasa, tunaweza kutumia volume.
+Option ninayopendekeza kwa sasa: bind mount frontend/build
+Kwanza tengeneza React build kwenye host, si ndani ya Docker.
+Kutoka:
+cd /opt/tpf/compensation-module-sso/HRMIS_Compesation_module/frontend
+run:
+npm install --legacy-peer-deps
+kisha:
+npm install --legacy-peer-deps ajv@6.12.6 ajv-keywords@3.5.2
+halafu:
+npm run build
+test -f build/index.html && echo "BUILD OK" || echo "BUILD FAILED"
+Sasa check:
+ls -lah build
+Unapaswa kuona:
+build/
+├── index.html
+├── asset-manifest.json
+├── favicon.ico
+├── static/
+├── background.jpg
+└── police_logo.png
+Hii ndiyo test muhimu.
+
+Kisha badilisha docker-compose.yml
+Frontend iwe hivi:
+
+  compensation_frontend:
+    image: nginx:1.27-alpine
+    container_name: compensation_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend/build:/usr/share/nginx/html:ro
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - compensation_backend
+    networks:
+      - compensation_network
+
+Unaweza kuondoa kabisa:
+
+build:
+  context: ./frontend
+  dockerfile: Dockerfile
+
+kwa sababu sasa hatuhitaji kujenga frontend image.
+--------------------------------
+IKIWA INDEX IPO KWENY CONTAINER 
+cd /opt/tpf/famis_django/famis_frontend_staff
+docker build --no-cache --progress=plain --target build -t famis_staff_build . 2>&1 | tail -60
+ls -la public/index.html src/index.js src/index.tsx 2>&1
+
+itakwambia tatizo lipo wap wakati build ikiwa inafanyika
+docker build --no-cache --target build -t famis_staff_build .
+docker run --rm famis_staff_build ls -la /app/build/static/js
+
+cd /opt/tpf/famis_django/famis_frontend_staff
+docker compose build --no-cache famis_frontend_staff
+docker compose up -d famis_frontend_staff
+
+
+=========================================HOW TO TAKE LOGS FROM DOCKER CONTAINER TO CVS===========================
+
+docker logs --timestamps hrmis_backend 2>&1 | \
+awk 'BEGIN {print "timestamp,message"} {
+    ts=$1
+    $1=""
+    sub(/^ /,"")
+    gsub(/"/,"\"\"")
+    print ts ",\"" $0 "\""
+}' > hrmis_backend.csv
+
+========================================= TO CREATE SUPERUSER BACKEND CONTAINER =================================
+docker exec -it compensation_backend bash
+python manage.py createsuperuser
+
+KUTHIBITISHA
+python manage.py shell
+
+from django.contrib.auth import get_user_model
+User = get_user_model()
+User.objects.filter(is_superuser=True).values('username', 'email', 'is_staff')
+
+===================================== TO MAKE MIGRATION KWENY CONTAINER =============================================
+1. Check migrations
+python manage.py showmigrations
+2. Run migrations
+python manage.py migrate
+
+=========================================== TO DISABLE SWAP MEMORY ===================================================
+
+sudo swapon --show
+sudo swapoff -a
+sudo nano /etc/fstab
+   Comment tha Last Line that consist swap configuration i.e 
+   #/swap.img      none    swap    sw      0       0
+exit
+
+======================================== SITE FOR TUNNING DATABASE ===================================================
+FOR POSTGRES
+https://pgtune.leopard.in.ua/
+FOR MYSQL
+https://chat2db.ai/tools/mysql-config-calculator?utm_source=chatgpt.com
+
+======================================= A LARAVEL PROJECT ALREADY DEPLOYED THERE ARE SOME CHANGES =======================
+
+cd /var/www/farajamanagement
+
+git pull origin main
+
+composer install --no-dev --optimize-autoloader
+
+php artisan migrate --force
+if you want a specific migration
+php artisan migrate --path="database/migrations/2026_09_29_175232_create_login_history_table.php"
+
+php artisan optimize:clear
+
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+php artisan queue:restart 2>/dev/null || true
+
+apache2ctl configtest
+systemctl reload apache2
+
+====================================

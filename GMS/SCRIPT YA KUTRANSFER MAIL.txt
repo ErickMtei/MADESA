@@ -1,0 +1,154 @@
+root@mail:~/scripts# vim users.txt
+root@mail:~/scripts# bash migration1.sh 
+
+root@mail:~/scripts# cat migration1.sh 
+#!/bin/bash
+
+##############################################################################
+
+# Bulk Email Migration Script
+
+# Source : Postfix/Dovecot
+
+# Target : iRedMail
+
+##############################################################################
+
+SRC_BASE="/var/mail/vhosts/tpf.go.tz"
+DST_SERVER="192.168.44.200"
+
+USER_FILE="users.txt"
+
+LOG_FILE="mail_migration_$(date +%F_%H-%M-%S).log"
+
+##############################################################################
+
+# Logging
+
+##############################################################################
+
+log() {
+echo "[$(date '+%F %T')] $1" | tee -a "$LOG_FILE"
+}
+
+##############################################################################
+
+# Start
+
+##############################################################################
+
+log "====================================================="
+log "Starting Bulk Mail Migration"
+log "Source      : $SRC_BASE"
+log "Destination : root@$DST_SERVER"
+log "User List   : $USER_FILE"
+log "====================================================="
+
+if [ ! -f "$USER_FILE" ]; then
+log "ERROR: User file not found: $USER_FILE"
+exit 1
+fi
+
+##############################################################################
+
+# Process Users
+
+##############################################################################
+
+while IFS= read -r EMAIL
+do
+
+[ -z "$EMAIL" ] && continue
+
+USERNAME="${EMAIL%@*}"
+
+SRC_PATH="$SRC_BASE/$USERNAME"
+
+log "-----------------------------------------------------"
+log "Processing account: $EMAIL"
+
+##########################################################################
+# Verify source mailbox exists
+##########################################################################
+
+if [ ! -d "$SRC_PATH" ]; then
+    log "ERROR: Source mailbox not found: $SRC_PATH"
+    continue
+fi
+
+##########################################################################
+# Get destination mailbox path from iRedMail
+##########################################################################
+
+DEST_PATH=$(ssh -n root@$DST_SERVER \
+    "doveadm user '$EMAIL' 2>/dev/null" | \
+    awk '$1=="home" {print $2}')
+
+if [ -z "$DEST_PATH" ]; then
+    log "ERROR: Destination account not found: $EMAIL"
+    continue
+fi
+
+log "Source      : $SRC_PATH/"
+log "Destination : $DEST_PATH/Maildir/"
+
+##########################################################################
+# Create Maildir structure if missing
+##########################################################################
+
+ssh -n root@$DST_SERVER "
+    mkdir -p '$DEST_PATH/Maildir/cur'
+    mkdir -p '$DEST_PATH/Maildir/new'
+    mkdir -p '$DEST_PATH/Maildir/tmp'
+    chown -R vmail:vmail '$DEST_PATH'
+" >> "$LOG_FILE" 2>&1
+
+##########################################################################
+# Migrate mailbox
+##########################################################################
+
+log "Starting rsync migration..."
+
+rsync -aHAXvz \
+    --exclude='dovecot*' \
+    --stats \
+    "$SRC_PATH/" \
+    "root@$DST_SERVER:$DEST_PATH/Maildir/" \
+    >> "$LOG_FILE" 2>&1
+
+if [ $? -ne 0 ]; then
+    log "ERROR: rsync failed for $EMAIL"
+    continue
+fi
+
+##########################################################################
+# Fix ownership
+##########################################################################
+
+ssh -n root@$DST_SERVER \
+    "chown -R vmail:vmail '$DEST_PATH'" \
+    >> "$LOG_FILE" 2>&1
+
+##########################################################################
+# Rebuild mailbox indexes
+##########################################################################
+
+ssh -n root@$DST_SERVER \
+    "doveadm force-resync -u '$EMAIL' '*'" \
+    >> "$LOG_FILE" 2>&1
+
+log "SUCCESS: Migration completed for $EMAIL"
+
+done < "$USER_FILE"
+
+##############################################################################
+
+# Finish
+
+##############################################################################
+
+log "====================================================="
+log "Bulk migration completed"
+log "Log file saved as: $LOG_FILE"
+log "====================================================="
+root@mail:~/scripts# 

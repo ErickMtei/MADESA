@@ -1,0 +1,519 @@
+RABBITMQ
+RabbitMQ kwenye Production
+A. Deployment na Configuration
+Kabla hujaweka RabbitMQ production, unapaswa kuelewa infrastructure yake.
+
+Mambo ya kufanya
+Ku-deploy RabbitMQ kwenye Docker, VM au dedicated server.
+Kuweka persistent storage kwa data muhimu ya broker.
+Kuweka hostname, IP, DNS na network connectivity.
+Kuweka users na permissions.
+Kuhakikisha application servers zinaweza ku-connect.
+Ku-configure resource limits na restart policies.
+
+Mfano wa architecture
+Application / Producer
+Django, Java, Node.js, etc.
+
+RabbitMQ
+Exchange → Queue → Message
+
+Consumer / Worker
+Inachukua na kusindika messages
+
+Kumbuka: Developer ndiye anayepaswa kukupa messaging requirements kama exchange, queue, routing key, acknowledgement na consumer behavior. Wewe unasimamia broker na mazingira yake.
+
+B. Monitoring RabbitMQ
+Hii ni kazi unayofanya mara kwa mara kwenye production.
+
+Vitu vya kuangalia
+Metric
+
+Inakuonyesha nini?
+
+Queue depth
+Idadi ya messages zinazosubiri
+
+Consumers
+Kama workers wapo na wanafanya kazi
+
+Unacknowledged
+Messages zilizotolewa lakini hazijathibitishwa
+
+Publish rate
+Kasi ya messages zinazoingia
+
+Delivery rate
+Kasi ya messages zinazosambazwa
+
+Memory usage
+Kiasi cha RAM kinachotumiwa
+
+Disk free space
+Nafasi iliyobaki kwa broker
+
+Connections
+Idadi ya clients zilizounganishwa
+
+Mfano wa production incident
+Application inatuma requests 10,000 kwa dakika, lakini consumer anasindika 2,000 kwa dakika.
+
+Matokeo:
+
+Queue inazidi kuongezeka.
+
+Message processing inachelewa.
+
+Memory pressure inaweza kuongezeka.
+
+Users wanaweza kuona delays.
+
+Kazi yako: Kuchunguza queue depth, consumer health, processing rate na logs, kisha kushirikiana na developer kubaini kama tatizo ni infrastructure au application capacity.
+
+C. RabbitMQ Queues na Consumer Management
+Unapaswa kujua haya:
+
+Queue gani ipo?
+
+Queue hiyo inahusiana na application gani?
+
+Ina consumers wangapi?
+
+Messages zinaongezeka au zinapungua?
+
+Consumer ina-acknowledge messages?
+
+Kuna messages zilizokwama?
+
+Je, kuna dead-letter queue kwa failed messages?
+
+Mfano wa commands
+# List containers
+docker ps
+
+# RabbitMQ container logs
+docker logs --tail 100 -f rabbitmq
+
+# Check RabbitMQ overview
+docker exec -it rabbitmq rabbitmq-diagnostics status
+
+# List queues
+docker exec -it rabbitmq rabbitmqctl list_queues \
+name messages_ready messages_unacknowledged consumers
+
+Badilisha rabbitmq kwa jina halisi la container yako.
+
+Production caution: Usifute queue au purge messages bila kuthibitisha na owner wa application na kuelewa athari zake.
+
+D. RabbitMQ Security kwenye Production
+Security ni jukumu muhimu la administrator.
+
+1. Users na permissions
+Usitumie user mmoja kwa kila application bila sababu. Tumia accounts zinazohusiana na service husika.
+
+Mfano:
+
+User
+
+Kazi
+
+gothomis_app
+
+Application messaging
+
+admin_ops
+
+Administrative tasks
+
+monitoring
+
+Monitoring, kulingana na permissions
+
+RabbitMQ ina permissions zinazodhibiti access kwenye virtual hosts, queues na exchanges.
+
+2. Ports za kuzingatia
+Port
+Kazi
+
+5672
+AMQP
+
+15672
+Management UI / HTTP API
+
+5671
+AMQPS (TLS)
+
+25672
+Cluster/node communication, kulingana na deployment
+
+Production practice:
+Usifungue Management UI kwa internet bila protection.
+Tumia firewall kuruhusu IP za application servers pekee.
+Tumia TLS pale inapohitajika na kwa kuzingatia security requirements.
+Tumia strong credentials na separate admin accounts.
+
+INSTALLATION AND CONFIGURATION	 
+mkdir -p /opt/rabbitmq
+cd /opt/rabbitmq
+mkdir -p data
+
+nano docker-compose.yml
+services:
+  rabbitmq:
+    image: rabbitmq:3.9.4-management
+    container_name: gothomis-rabbitmq
+    restart: unless-stopped
+    hostname: gothomis-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: CHANGE_THIS_PASSWORD
+      RABBITMQ_DEFAULT_VHOST: gothomis
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - .rabbitmq/data:/var/lib/rabbitmq
+    networks:
+      - rabbitmq-net
+
+networks:
+  rabbitmq-net:
+    driver: bridge
+	
+---------------------------------------
+Understand the RabbitMQ configuration
+There are several things you normally configure.
+
+Users;
+admin
+application_user
+monitoring_user
+
+Virtual hosts;
+/
+gothomis
+production
+development
+
+Permissions;
+configure
+write
+read
+
+Exchanges;
+gothomis.events
+gothomis.commands
+
+Queues;
+insurance.queue
+notification.queue
+audit.queue
+
+Bindings;
+exchange → queue
+--------------------------------------
+Create users from CLI
+For example:
+docker exec gothomis-rabbitmq \
+rabbitmqctl add_user gothomis_app 'StrongPasswordHere'
+
+Give the user access to the gothomis vhost:
+docker exec gothomis-rabbitmq \
+rabbitmqctl set_permissions -p gothomis gothomis_app ".*" ".*" ".*"
+
+The three expressions mean:
+configure
+write
+read
+
+So:
+".*"  → configure
+".*"  → write
+".*"  → read
+For production, you should eventually make these permissions more restrictive.
+----------------------------------------------------
+9. Create an administrator
+docker exec gothomis-rabbitmq \
+rabbitmqctl add_user rabbitadmin 'VeryStrongPassword'
+
+Then:
+docker exec gothomis-rabbitmq \
+rabbitmqctl set_user_tags rabbitadmin administrator
+
+And give it permissions:
+docker exec gothomis-rabbitmq \
+rabbitmqctl set_permissions -p gothomis rabbitadmin ".*" ".*" ".*"
+
+Now you have:
+rabbitadmin
+     │
+     └── RabbitMQ administration
+gothomis_app
+     │
+     └── Application connection
+Don't use the administrator account in your application.
+----------------------------------------------------------
+10. Create a virtual host
+
+You can create another vhost:
+docker exec gothomis-rabbitmq \
+rabbitmqctl add_vhost production
+
+List vhosts:
+docker exec gothomis-rabbitmq \
+rabbitmqctl list_vhosts
+
+You might have:
+/
+gothomis
+production
+
+A vhost provides a logical separation.
+For example:
+RabbitMQ
+│
+├── gothomis
+│     ├── exchanges
+│     └── queues
+│
+└── production
+      ├── exchanges
+      └── queues
+	  
+	  
+--------------------------------------------------------------------
+11. Application connection
+Your application needs something similar to:
+amqp://gothomis_app:password@rabbitmq:5672/gothomis
+
+If the application is another Docker container on the same Docker network:
+rabbitmq:5672
+is normally the hostname.
+For example:
+services:
+  backend:
+    image: gothomis-backend:latest
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: gothomis_app
+      RABBITMQ_PASSWORD: StrongPasswordHere
+      RABBITMQ_VHOST: gothomis
+    networks:
+      - rabbitmq-net
+
+  rabbitmq:
+    image: rabbitmq:3.9.4-management
+    networks:
+      - rabbitmq-net
+
+networks:
+  rabbitmq-net:
+
+Docker's internal DNS allows:
+backend → rabbitmq
+without needing an IP address.
+---------------------------------------------------------------------------------
+12. Persistence — VERY important
+Without persistent storage, you risk losing RabbitMQ's persistent data when the container is recreated.
+That's why we have:
+volumes:
+  - ./data:/var/lib/rabbitmq
+
+RabbitMQ stores its data under:
+/var/lib/rabbitmq
+inside the container.
+On your host:
+/opt/rabbitmq/data
+
+contains the persisted data.
+Check:
+ls -lah /opt/rabbitmq/data
+-----------------------------------------------------------------------------------
+13. Persistent messages
+There are actually two separate concepts:
+Durable queue
+Queue survives RabbitMQ restart.
+Persistent message
+Message is stored persistently.
+You generally want both for important workloads.
+Conceptually:
+Durable Queue
+      +
+Persistent Message
+      +
+Publisher Confirms
+      +
+Consumer ACK
+
+gives you a much stronger reliability model.
+----------------------------------------------------------------------------------
+14. Create an exchange and queue
+You can do this through the Management UI, which is easier when learning.
+Go to:
+Exchanges
+Create:
+gothomis.events
+
+Type:
+topic
+
+Then create a queue:
+insurance.queue
+
+Make it:
+Durable
+
+Then create binding:
+
+Exchange:
+gothomis.events
+
+Queue:
+insurance.queue
+
+Routing key:
+insurance.*
+
+Now:
+insurance.created
+insurance.approved
+insurance.rejected
+
+can route to:
+insurance.queue
+------------------------------------------------------------------------------------------
+15. See your queues from CLI
+
+Your existing server:
+docker exec gothomis-rabbitmq \
+rabbitmqctl list_queues name messages messages_ready messages_unacknowledged
+
+For more information:
+
+docker exec gothomis-rabbitmq \
+rabbitmqctl list_queues name durable auto_delete consumers messages
+------------------------------------------------------------------------------------------
+16. See exchanges
+docker exec gothomis-rabbitmq \
+rabbitmqctl list_exchanges name type durable
+
+Example:
+
+name                  type
+amq.direct             direct
+amq.fanout             fanout
+amq.topic              topic
+gothomis.events        topic
+------------------------------------------------------------------------------------------
+17. See bindings
+This is particularly useful when troubleshooting routing:
+
+docker exec gothomis-rabbitmq \
+rabbitmqctl list_bindings
+
+You'll be able to understand:
+
+Exchange
+   │
+   │ routing key
+   ▼
+Queue
+----------------------------------------------------------------------------------------
+18. See connected applications
+docker exec gothomis-rabbitmq \
+rabbitmqctl list_connections
+
+Channels:
+
+docker exec gothomis-rabbitmq \
+rabbitmqctl list_channels
+
+Consumers:
+
+docker exec gothomis-rabbitmq \
+rabbitmqctl list_consumers
+
+This is very useful when you ask:
+"Who is consuming this queue?"
+--------------------------------------------------------------------------------------------
+19. Security
+Don't expose RabbitMQ management to the whole Internet.
+Avoid:
+0.0.0.0:15672
+
+with unrestricted firewall access.
+Ideally:
+Internet
+    X
+    │
+    │ blocked
+    ▼
+RabbitMQ
+Only trusted administration networks should access:
+15672
+Applications should use:
+5672
+and administrators use:
+15672
+------------------------------------------------------------------------------------------------
+20. Your current RabbitMQ
+
+You currently have:
+
+Container:
+gothomis-rabbitmq
+
+Image:
+rabbitmq:3.9.4-management
+
+Status:
+healthy
+
+AMQP:
+5671
+5672
+
+Management:
+15671
+15672
+
+So you already have a functioning RabbitMQ deployment.
+
+Before changing anything on that production container, I'd first audit it.
+
+Run these:
+
+docker exec gothomis-rabbitmq rabbitmqctl status
+docker exec gothomis-rabbitmq rabbitmqctl list_vhosts
+docker exec gothomis-rabbitmq rabbitmqctl list_users
+docker exec gothomis-rabbitmq rabbitmqctl list_queues name messages messages_ready messages_unacknowledged
+docker exec gothomis-rabbitmq rabbitmqctl list_exchanges name type durable
+docker exec gothomis-rabbitmq rabbitmqctl list_bindings
+docker exec gothomis-rabbitmq rabbitmqctl list_consumers
+
+That will give us the actual architecture of your Gothomis RabbitMQ.
+
+Then we can map it as:
+
+                    GOTHOMIS
+                       │
+                 ┌─────┴─────┐
+                 │ Producers │
+                 └─────┬─────┘
+                       │
+                       ▼
+                 ┌───────────┐
+                 │ Exchanges │
+                 └─────┬─────┘
+                       │
+                Bindings / Keys
+                       │
+              ┌────────┼────────┐
+              ▼        ▼        ▼
+            Queue    Queue    Queue
+              │        │        │
+              ▼        ▼        ▼
+			  
+--------------------------------------------------------------------------------
