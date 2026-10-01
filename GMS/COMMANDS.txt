@@ -724,4 +724,13 @@ php artisan queue:restart 2>/dev/null || true
 apache2ctl configtest
 systemctl reload apache2
 
-====================================
+============================ TO GENERATE STRONG PASSWORD USING TERMINAL===================
+
+Strong random password — recommended
+openssl rand -base64 32
+
+Generate a password with letters, numbers and symbols
+< /dev/urandom tr -dc 'A-Za-z0-9!@#$%^&*()_+=-' | head -c 32
+echo
+
+============================
