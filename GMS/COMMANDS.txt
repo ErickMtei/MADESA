@@ -41,6 +41,14 @@ Restore dump
 mysql -u fidia -p compensation_db < compensation_db.sql
 mysql -u silaha -p farisdb2 < 
 
+
+Replace the collation directly in the SQL file (Recommended)
+sed -i 's/utf8mb4_0900_ai_ci/utf8mb4_unicode_ci/g' pscg.sql
+
+Wipe and Recreate the Entire Database
+mysql -u pscg_user -p -e "DROP DATABASE pscg; CREATE DATABASE pscg;"
+mysql -u pscg_user -p pscg < pscg.sql
+
 Restore from compressed backup
 >>  gunzip < db_name.sql.gz | mysql -u username -p db_name
 
@@ -252,10 +260,10 @@ Check users:
 > SELECT user,host, plugin FROM mysql.user;
 
 create user can access remote;
-CREATE USER 'fidia'@'%' IDENTIFIED BY 'fidia@phq';
+CREATE USER 'pscg_user'@'%' IDENTIFIED BY 'tpfroom@clear2026';
 
-GRANT ALL PRIVILEGES ON farisdb2.* 
-TO 'silaha'@'%';
+GRANT ALL PRIVILEGES ON pscg.* 
+TO 'pscg_user'@'%';
 
 FLUSH PRIVILEGES;
 
@@ -278,6 +286,46 @@ format fs=fat32 quick
 assign
 
 USE [TESTDISK] FOR RECOVER DATA
+
+
+====================== FLASH WITH A SHORTCUT ==========================================
+Unachokiona ni USB flash drive shortcut virus. Yaani ukiingiza flash, mafaili/folders zako zinafichwa, halafu virus anatengeneza shortcut .lnk kama hiyo UBUNTU 26_0 uliyoonyesha.
+Mara nyingi data yenyewe haijafutwa — imefichwa (Hidden/System) na shortcut ndiyo inayoonekana.
+Usifanye hivi kwanza
+
+Usi-double-click hiyo shortcut. Inaweza ku-run command/script ya malware.
+
+Kwanza jaribu kurejesha files
+Chomeka flash, halafu fungua Command Prompt as Administrator.
+
+Angalia drive letter ya flash, mfano E:.
+Kisha:
+
+E:
+
+halafu:
+
+attrib -h -s -r /s /d *.*
+
+Subiri imalize, kisha fungua flash tena.
+Command hii inaondoa attributes za:
+Hidden
+System
+Read-only
+kwa files na folders zilizopo kwenye flash.
+
+Kama shortcut bado ipo
+Usiifungue. Unaweza kuifuta:
+
+del /a *.lnk
+
+Lakini usi-run hiyo command mpaka uhakikishe uko ndani ya flash, mfano:
+
+E:
+
+Unaweza pia kuangalia kwanza:
+
+dir /a
 
 ====================================TIME ==============================================
 date
@@ -558,7 +606,7 @@ Keepalived = failover ya VIP; HAProxy = load balancing
 ========== PERMISSION ===============================================================
 chown -R root:root file o directory
 chmod -R 755 file o directory
-chmod +X file
+chmod +x file
 
 ================ NETWORK COMMAND ====================================================
 KUCHECK IP NA KUADD IP KWENY INTERFACE
@@ -686,6 +734,14 @@ python manage.py showmigrations
 2. Run migrations
 python manage.py migrate
 
+================================== HOW TO CREATE VIRTUAL ENVIRONMENT BACKEND PYPHON =================================
+
+python3 -m venv venv
+
+To activate virtual environment
+source venv/bin/activate 
+pip install -r requirements.txt 
+
 =========================================== TO DISABLE SWAP MEMORY ===================================================
 
 sudo swapon --show
@@ -733,4 +789,266 @@ Generate a password with letters, numbers and symbols
 < /dev/urandom tr -dc 'A-Za-z0-9!@#$%^&*()_+=-' | head -c 32
 echo
 
-============================
+============================ UNRAR ======================================================
+
+apt update
+apt install unrar -y
+
+unrar x folder.rar
+
+
+Kama unataka kila RAR iende kwenye folder yake
+mkdir -p 'TPSC KIDATU'
+unrar x 'TPSC KIDATU.rar' 'TPSC KIDATU/'
+
+mkdir -p 'TPS MOSHI'
+unrar x 'TPS MOSHI.rar' 'TPS MOSHI/'
+
+mkdir -p zpc
+unrar x zpc.rar zpc/
+
+========================== GENERATE CERTIFICATES ===========================================
+
+mkdir -p /etc/ssl/zpc
+
+openssl req -x509 -nodes -days 3650 \
+  -newkey rsa:2048 \
+  -keyout /etc/ssl/zpc/zpc.key \
+  -out /etc/ssl/zpc/zpc.crt \
+  -subj "/C=TZ/ST=ZANZIBAR/L=Unguja/O=ZPC/CN=192.168.10.91" \
+  -addext "subjectAltName=IP:192.168.10.91"
+  
+mkdir -p /etc/ssl/pcc 
+ 
+openssl req -x509 -nodes -days 3650 \
+  -newkey rsa:2048 \
+  -keyout /etc/ssl/pcc/pcc.key \
+  -out /etc/ssl/pcc/pcc.crt \
+  -subj "/C=TZ/ST=DODOMA/L=dodoma/O=TPF/CN=pcc.tpf.go.tz" \
+  -addext "subjectAltName=DNS:pcc.tpf.go.tz"
+  
+
+Lazima uhakikishe kuna right permission  
+  
+chmod 600 /etc/ssl/zpc/zpc.key
+chmod 644 /etc/ssl/zpc/zpc.crt
+  
+======================== STATUS ERROR CODE ====================================================
+
+200 → request imefanikiwa
+401 → authentication issue
+403 → permission/CSRF
+404 → URL/routing
+500 → backend error
+502 → Nginx hawezi kufikia Gunicorn
+504 → backend ime-timeout
+
+====================== APACHE COMMAND AND CONF FILE ==========================================
+
+/etc/apache2/sites-available/
+/etc/apache2/sites-enabled/
+/etc/apache2/ports.conf
+
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo ln -s /etc/nginx/sites-available/myapp \
+    /etc/nginx/sites-enabled/myapp
+
+sudo apache2ctl configtest
+
+TO DISABLE CONF FILE
+sudo a2dissite jina-la-conf.conf
+sudo systemctl reload apache2
+
+TO ENABLE CONF FILE
+sudo a2ensite system.conf
+sudo systemctl reload apache2
+
+
+==================== DJANGO AND REACT PROJECT DEPLOYMENT WITHOUT USING DOCKERjo ================================================
+1. Install environment 
+
+sudo apt update
+sudo apt install -y nginx python3 python3-venv python3-pip \
+    postgresql postgresql-contrib git
+	
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+
+
+Verify installation
+node -v
+npm -v
+python3 --version
+nginx -v
+
+2. Move the project to specific repository
+sudo mkdir -p /opt/myapp
+sudo chown -R $USER:$USER /opt/myapp
+
+cd /opt/myapp
+git clone <YOUR_GIT_REPOSITORY> .
+
+3. Configure DJANGO
+cd /opt/myapp/backend
+
+create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+install requirements
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install gunicorn
+
+TEST DJANGO
+python manage.py check
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py collectstatic --noinput
+
+4. Configure Django production settings
+
+5. Test Django with Gunicorn
+
+cd /opt/myapp/backend
+source venv/bin/activate
+Run
+gunicorn --bind 127.0.0.1:8000 config.wsgi:application
+Replace config.wsgi with your actual django project
+
+TEST using another terminal;
+curl http://127.0.0.1:8000
+
+6.Create a systemd service for Django
+Create:
+sudo nano /etc/systemd/system/myapp-backend.service
+
+Put:;
+
+[Unit]
+Description=MyApp Django Backend
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+
+WorkingDirectory=/opt/myapp/backend
+
+Environment="PATH=/opt/myapp/backend/venv/bin"
+
+ExecStart=/var/www/famis_django/famis_backend/venv/bin/gunicorn \
+ --workers 3 \
+ --bind 127.0.0.1:8003 \
+ --no-control-socket config.wsgi:application
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+
+Change:
+myproject.wsgi to your actual Django project.
+
+Then:
+sudo chown -R www-data:www-data /opt/myapp/backend
+sudo systemctl daemon-reload
+sudo systemctl enable --now myapp-backend
+
+Check:
+systemctl status myapp-backend
+
+Logs:
+journalctl -u myapp-backend -f
+
+7. BUILD REACT FRONTEND
+
+cd /opt/myapp/frontend
+
+install packages
+npm install
+
+BUILD
+npm run build
+
+normally this create dist/ o build/ for Vite React ,normally dist/
+ls -lah dist/
+
+8.Deploy React build
+I normally recommend keeping the source separate from the web root:
+
+/opt/myapp/frontend/
+and deploy the build to:
+/var/www/myapp/
+
+For example:
+sudo mkdir -p /var/www/myapp
+sudo cp -r dist/* /var/www/myapp/
+
+Then:
+sudo chown -R www-data:www-data /var/www/myapp
+
+9.Configure Nginx au Apache2
+sudo nano /etc/nginx/sites-available/myapp
+
+Enable it;
+sudo ln -s /etc/nginx/sites-available/myapp \
+    /etc/nginx/sites-enabled/myapp
+	
+Remove default if necessary:
+sudo rm -f /etc/nginx/sites-enabled/default
+
+Test:
+sudo nginx -t
+
+Then:
+sudo systemctl reload nginx
+
+10. Your React API URL
+This part is important.
+If your Django API is exposed through:
+/api/
+
+then React should call:
+/api/users/
+
+rather than:
+http://127.0.0.1:8000/api/users/
+
+For example with Axios:
+const api = axios.create({
+    baseURL: "/api",
+});
+
+Then:
+api.get("/users/");
+
+Browser sees:
+http://your-server/api/users/
+
+Nginx receives it and sends it internally to:
+127.0.0.1:8000
+This is much cleaner than exposing Gunicorn directly.
+
+===================================== CERTBOT SSL/TLS =====================================
+Ondoa Certbot ya zamani ya apt
+sudo apt remove --purge certbot python3-certbot-apache
+
+Sakinisha Snapd (kama haipo kwenye seva yako)
+sudo apt update
+sudo apt install snapd
+sudo snap install core
+sudo snap refresh core
+
+Sakinisha Certbot kupitia Snap
+sudo snap install --classic certbot
+sudo ln -s /snap/bin/certbot /usr/bin/certbot
+
+Jaribu Tena Kuomba Cheti
+sudo certbot --apache -d pscgp.tpf.go.tz
+
+============== PUBLIC IP YA SEVA =========================================================
+
+curl ifconfig.me

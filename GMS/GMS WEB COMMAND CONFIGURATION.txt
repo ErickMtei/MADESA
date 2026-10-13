@@ -1020,6 +1020,9 @@ Destination": "/usr/local/etc/php/conf.d/uploads.ini",
    PATH ..... /etc/ssl/certificates/
    CHECK THE CONFIGURATION
    RESTART SERVICE ....httpd 
+   
+   PATH ...../etc/httpd/conf.d
+   path ya conf file 
 
 ==================== IMAGES AND ICON ===========================
 There is a container that manage application UI
@@ -1045,4 +1048,7 @@ PASSWORD ENFORCEMENT
 inside the container
 CONFIG FILE PATH--/var/www/html/config/plugin-configs/password.inc.php
 MAIN PLUGIN FILE PASSWORD--/var/www/html/plugins/password/password.php
+
+
+
 

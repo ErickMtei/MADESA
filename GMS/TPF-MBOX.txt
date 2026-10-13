@@ -336,19 +336,30 @@ INSERT INTO throttle (account, kind, priority, period, max_rcpts)
 VALUES ('@.', 'outbound', 0, 0, 5);
 
 INSERT INTO throttle (account, kind, priority, period, max_rcpts) 
-VALUES ('audit.query@tpf.go.tz.', 'outbound', 0, 0, 20);
+VALUES ('utawala.phq@tpf.go.tz', 'outbound', 0, 0, 20);
 
 
 INSERT INTO throttle
 (account, kind, priority, period, max_msgs, max_rcpts)
 VALUES
-('erick.mtei@tpf.go.tz', 'outbound', 10, 3600, -1, 50),
-('dawson.msongaleli@tpf.go.tz', 'outbound', 10, 3600, -1, 50),
+('intel.utawala@tpf.go.tz', 'outbound', 10, 3600, -1, 50),
+('intel.collectionhq@tpf.go.tz', 'outbound', 10, 3600, -1, 50),
 ('rpc.mtwara@tpf.go.tz', 'outbound', 10, 3600, -1, 20),
 ('rpc.arusha@tpf.go.tz', 'outbound', 10, 3600, -1, 20),
 ('rpc.geita@tpf.go.tz', 'outbound', 10, 3600, -1, 20),
 ('cp.znz@tpf.go.tz', 'outbound', 10, 3600, -1, 20),
 ('rpc.kigoma@tpf.go.tz', 'outbound', 10, 3600, -1, 20);
+
+
+
+UPDATE iredapd.throttle
+SET
+    priority = 10,
+    period = 3600,
+    max_msgs = -1,
+    max_rcpts = 20
+WHERE account = 'utawala.phq@tpf.go.tz'
+  AND kind = 'outbound';
 
 
 
