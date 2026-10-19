@@ -392,6 +392,17 @@ after save the file
 You can simply type:
 ssh my-website
 
+
+TROUBLESHOOTING 
+IKIWA UMEADD KEY ALAFU BADO INAKUTAKA PASSWORD
+Ongeza key yako kwenye ssh-agent
+eval "$(ssh-agent -s)"
+ssh-add /root/.ssh/rtoc
+
+kuangalia kama imekubali
+ssh -T git@192.168.57.29
+
+
 ==================================== TO CHECK OS ============================================
 uname -a
 cat /etc/os-release
@@ -818,14 +829,14 @@ openssl req -x509 -nodes -days 3650 \
   -subj "/C=TZ/ST=ZANZIBAR/L=Unguja/O=ZPC/CN=192.168.10.91" \
   -addext "subjectAltName=IP:192.168.10.91"
   
-mkdir -p /etc/ssl/pcc 
+mkdir -p /etc/ssl/mail 
  
 openssl req -x509 -nodes -days 3650 \
   -newkey rsa:2048 \
-  -keyout /etc/ssl/pcc/pcc.key \
-  -out /etc/ssl/pcc/pcc.crt \
-  -subj "/C=TZ/ST=DODOMA/L=dodoma/O=TPF/CN=pcc.tpf.go.tz" \
-  -addext "subjectAltName=DNS:pcc.tpf.go.tz"
+  -keyout /etc/ssl/mail/mail.key \
+  -out /etc/ssl/mail/mail.crt \
+  -subj "/C=TZ/ST=DODOMA/L=dodoma/O=TPF/CN=mail.tpf.go.tz" \
+  -addext "subjectAltName=DNS:mail.tpf.go.tz"
   
 
 Lazima uhakikishe kuna right permission  
@@ -907,6 +918,8 @@ python manage.py createsuperuser
 python manage.py collectstatic --noinput
 
 4. Configure Django production settings
+
+.env file au setting.py
 
 5. Test Django with Gunicorn
 
@@ -1052,3 +1065,9 @@ sudo certbot --apache -d pscgp.tpf.go.tz
 ============== PUBLIC IP YA SEVA =========================================================
 
 curl ifconfig.me
+
+============= OLD MAIN DIRECTORY ========================================================
+
+/var/mail/vhosts/tpf.go.tz
+
+===============

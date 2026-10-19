@@ -1050,5 +1050,7 @@ CONFIG FILE PATH--/var/www/html/config/plugin-configs/password.inc.php
 MAIN PLUGIN FILE PASSWORD--/var/www/html/plugins/password/password.php
 
 
-
+it.supportphq@tpf.go.tz
+/var/www/html/program/localization/en_US/labels.inc:$labels['supportteam'] = 'For any Technical inquiry, Please contact your Support Team at : $supportemail';  ==line no 832
+/var/www/html/plugins/ega_current_identity/ega_current_identity.php:        $supportEmail = '<span style="unicode-bidi: bidi-override;direction: rtl;">@troppustci</span>'. $this->rc->config->get('username_domain');
 

@@ -45,10 +45,3 @@ Hiyo ndiyo yote. Subiri iboot, ione kama inafika kwenye login prompt ya kawaida 
 cat /var/log/maillog |tr ' ' '\n'| grep @ | grep -v -w 'an\|a\|is'| sort| uniq -c| sort -nk1 -r| head -n 30 | grep from
 
 ===============================
-
-
-Sep 16 09:20:11 tpf-mx postfix/smtpd[45036]: connect from mail-yx2-f13.google.com[74.125.224.141]
-Sep 16 09:20:13 tpf-mx policyd-spf[8636]: prepend Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=74.125.224.141; helo=mail-yx2-f13.google.com; envelope-from=suleimanjuma679@gmail.com; receiver=<UNKNOWN> 
-Sep 16 09:20:13 tpf-mx postfix/smtpd[45036]: NOQUEUE: reject: RCPT from mail-yx2-f13.google.com[74.125.224.141]: 554 5.7.1 Service unavailable; Client host [74.125.224.141] blocked using bl.spamcop.net; Blocked - see https://www.spamcop.net/bl.shtml?74.125.224.141; from=<suleimanjuma679@gmail.com> to=<openregistry.temeke@tpf.go.tz> proto=ESMTP helo=<mail-yx2-f13.google.com>
-Sep 16 09:20:14 tpf-mx postfix/smtpd[45036]: disconnect from mail-yx2-f13.google.com[74.125.224.141] ehlo=2 starttls=1 mail=1 rcpt=0/1 bdat=0/1 quit=1 commands=5/7
-Sep 16 09:20:32 tpf-mx postfix/smtpd[97931]: connect from unknown[159.200.240.59]
